@@ -27,7 +27,7 @@
 spec = Gem::Specification.new do |s|
   s.name = %q{zabcon}
   s.rubyforge_project = "zabcon"
-  s.version = "0.0.4"
+  s.version = "0.0.5"
   s.authors = ["A. Nelson"]
   s.email = %q{nelsonab@red-tux.net}
   s.summary = %q{Zabcon command line interface for Zabbix}
@@ -42,9 +42,9 @@ spec = Gem::Specification.new do |s|
   s.require_paths =["."]
   s.files =
     ["zabcon.rb", "zabcon.conf.default", "README", "libs/argument_processor.rb",
-     "libs/command_help.rb", "libs/command_tree.rb", "libs/defines.rb", "libs/exceptions.rb",
+     "libs/command_help.rb", "libs/command_tree.rb",
      "libs/help.xml", "libs/input.rb", "libs/printer.rb", "libs/zabcon_core.rb",
-     "libs/zabcon_exceptions.rb", "libs/zabcon_globals.rb", "libs/zbxcliserver.rb", "libs/zdebug.rb"]
+     "libs/zabcon_exceptions.rb", "libs/zabcon_globals.rb", "libs/zbxcliserver.rb"]
   s.bindir = "."
   s.executables << "zabcon.rb"
   s.default_executable="zabcon"

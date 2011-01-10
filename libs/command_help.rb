@@ -36,7 +36,7 @@ class CommandHelp
   include ZDebug
 
   def initialize(language)
-    @file = File.new("libs/help.xml")
+    @file = File.new(ZABCON_PATH+"/libs/help.xml")
 
     @doc=REXML::Document.new(@file).elements["//help[@language='#{language}']"]
 #    puts @doc.root.attributes
