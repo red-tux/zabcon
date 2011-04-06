@@ -18,13 +18,28 @@
 
 ##########################################
 # Subversion information
-# $Id: zbxcliserver.rb 258 2010-12-28 22:49:21Z nelsonab $
-# $Revision: 258 $
+# $Id$
+# $Revision$
 ##########################################
 
 require 'zbxapi'
 require 'libs/zdebug'
 require 'libs/zabcon_globals'
+
+class ZabbixServer < ZabbixAPI
+  alias zbxapi_initialize initialize
+  alias zbxapi_do_request do_request
+
+  def initialize(url,debug_level=0)
+    @env = EnvVars.instance
+    zbxapi_initialize(url,debug_level)
+  end
+
+  #truncate_length is set to the symbol :not_used as do_request is passed a different variable
+  def do_request(json_obj,truncate_length=:not_used)
+    zbxapi_do_request(json_obj,@env["truncate_length"])
+  end
+end
 
 class ZbxCliServer
 
@@ -38,7 +53,7 @@ class ZbxCliServer
     @password=password
     @debuglevel=debuglevel
     # *Note* Do not rescue errors here, rescue in function that calls this block
-    @server=ZabbixAPI.new(@server_url,@debuglevel)
+    @server=ZabbixServer.new(@server_url,@debuglevel)
     @server.login(@user, @password)
     GlobalVars.instance["auth"]=@server.auth
   end

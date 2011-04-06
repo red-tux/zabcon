@@ -21,7 +21,7 @@
 ##########################################
 # Subversion information
 # $Id: $
-# $Revision: 270 $
+# $Revision$
 ##########################################
 
 require 'parseconfig'
@@ -123,16 +123,17 @@ class ZabconCore
     @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["set","var"], self.method(:set_var), no_args, no_help, @arg_processor.method(:simple_processor),:suppress_printer
     @commands.insert ["set","env"], self.method(:set_env), no_args, no_help, @arg_processor.method(:simple_processor), :suppress_printer
-    @commands.insert ["show","var"], self.method(:show_var), no_args, no_help, @arg_processor.method(:array_processor), :suppress_printer
-    @commands.insert ["show","env"], self.method(:show_env), no_args, no_help, @arg_processor.method(:array_processor), :suppress_printer
-    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.method(:array_processor), :suppress_printer
+    @commands.insert ["show","var"], self.method(:show_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
+    @commands.insert ["show","env"], self.method(:show_env), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
+    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
 
 
     if loggedin then
       debug(5,"Inserting commands which require login")
       # This command tree is for a valid login
       @commands.insert ["get"], no_cmd, no_args, @cmd_help.method(:get)
-      @commands.insert ["import"], self.method(:do_import),no_args,no_help,no_verify
+      #Import commented out until fixed
+      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
 
       @commands.insert ["add","app"], @server.method(:addapp),no_args,no_help,no_verify
       @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
@@ -265,7 +266,7 @@ class ZabconCore
         puts "A fatal error occurred."
       end
       e.show_message
-      e.show_backtrace
+#      e.show_backtrace
       retry if e.retry?
     end  #end of exception block
   end # def
@@ -441,31 +442,29 @@ class ZabconCore
 # Import config from an XML file:
 #
   def do_import(input)
-    if input.nil?
-      puts "Run requires a file name as argument."
-      return
-    end
+    debug(5,input,"args")
+
+    input=input[0]
 
     begin
-      xml_import = REXML::Document.new File.new(input[:filename])
+      xml_import = REXML::Document.new(File.new(input)).root
     rescue Errno::ENOENT
-      puts "Failed to open import file #{input[:filename]}."
-      return
+      raise ZabconError.new("Failed to open import file #{input}.",:retry=>true)
     end
 
     if xml_import.nil?
-      puts "Failed to parse import file #{input[:filename]}."
-      return
+      raise ZabconError.new("Failed to parse import file #{input}.",:retry=>true)
     end
 
-    host=xml_import.elements['import/hosts']
-    if !host.nil?
-      host = host[1]
+    p hosts=xml_import.elements.to_a("//hosts")[0]
+    p hosts = hosts.elements.to_a("//host")
+    if !hosts.empty?
+      host = hosts[0]
     end
 
     # Loop for the host tags:
     while !host.nil?
-      host_params = { 'host' => host.attributes["name"],
+      p host_params = { 'host' => host.attributes["name"],
                  'port' => host.elements["port"].text }
       if host.elements["useip"].text.to_i == 0 # This is broken in Zabbix export (always 0).
         host_params['dns']=host.elements["dns"].text

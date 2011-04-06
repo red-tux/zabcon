@@ -122,6 +122,7 @@ class ZabconApp
     env["echo"]=STDIN.tty? ? true: false
     env["config_file"]=:default
     env["load_config"]=true
+    env["truncate_length"]=5000
 
     #output related environment variables
     env["table_output"]=STDIN.tty?   # Is the output a well formatted table, or csv like?

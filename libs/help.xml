@@ -21,8 +21,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 ##########################################
 Subversion information
-$Id: help.xml 243 2010-11-11 15:59:02Z nelsonab $
-$Revision: 243 $
+$Id$
+$Revision$
 ##########################################
 
  Zabcon help file
@@ -245,6 +245,17 @@ Delete Item
 syntax: delete item itemid=num 
  itemid must be a number
  </item>
+
+<!-- 80 Col Marker ######################################################## -->
+
+  <item command="import">
+import
+syntax: import &lt;filename&gt;
+
+Import an XML file into Zabbix.  Requires one file name to be passed.
+An error will be returned for 0 or 2+ arguments passed.
+  </item>
+
 
 <!-- 80 Col Marker ######################################################## -->
 

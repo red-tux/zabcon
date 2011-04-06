@@ -18,8 +18,8 @@
 
 ##########################################
 # Subversion information
-# $Id: argument_processor.rb 266 2010-12-30 11:03:54Z richlv $
-# $Revision: 266 $
+# $Id$
+# $Revision$
 ##########################################
 
 require 'libs/zdebug'
@@ -315,7 +315,7 @@ class ArgumentProcessor
     debug(7,args,"default helper")
      api_params = args
     show_params = {}
-    if !args["show"].nil?
+    if args.class!=Array && !args["show"].nil?
        show_params={:show=>args["show"]}
        api_params.delete("show")
        api_params.merge({"extendoutput"=>true})
@@ -328,28 +328,52 @@ class ArgumentProcessor
   # The default processor also checks the incoming parameters against a list of valid arguments, and merges
   # the user variables with the inbound arguments with the inbound arguments taking precedence, raises an
   # exception if there is an error
+  # If :use_array_processor is passed as an option the array processor will be used
+  # In :num_args is passed with a value, and error will be returned if more than that many args are passed
+
   def default_processor(help_func,valid_args,args,user_vars,*options)
-    debug(7,args,"default argument processor")
+    debug(5,args,"default_processor args")
+    debug(5,options,"default_processor options")
 
-    args=substitute_vars(args)
-    args=params_to_hash(args)
-    if !(invalid=check_parameters(args, valid_args)).empty?
-      msg="Invalid parameters:\n"
-      msg+=invalid.join(", ")
-      raise ParameterError_Invalid.new(msg,:retry=>true, :help_func=>help_func)
+    #if the intersection of options and [:array] is not empty then we will return an array
+    return_array = !(options[0] & [:use_array_processor]).empty?
+    check_not_empty = !(options[0] & [:not_empty]).empty?
+
+    num_args=options[0].map { |i|
+      i[:num_args] if i.class==Hash
+    }.compact[0]   # will be nil if :num_args not found
+
+    if check_not_empty
+      raise ParameterError.new("No arguments",:retry=>true, :help_func=>help_func) if args==""
     end
 
-    valid_user_vars = {}
+    if return_array
+      args=safe_split(args)
+    else
+      args=substitute_vars(args)
+      args=params_to_hash(args)
+      if !(invalid=check_parameters(args, valid_args)).empty?
+        msg="Invalid parameters:\n"
+        msg+=invalid.join(", ")
+        raise ParameterError_Invalid.new(msg,:retry=>true, :help_func=>help_func)
+      end
 
-    if !valid_args.nil?
-      valid_args.each {|item|
-        valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
-      }
+      valid_user_vars = {}
+
+      if !valid_args.nil?
+        valid_args.each {|item|
+          valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
+        }
+      end
+      args = valid_user_vars.merge(args)
     end
-    args = valid_user_vars.merge(args)
-    
+
+    if !num_args.nil?
+      eval_exp="#{args.length}#{num_args}"
+      raise ParameterError.new("Too many arguments (#{args.length})",:retry=>true, :help_func=>help_func) if !eval(eval_exp)
+    end
+
     default_helper(args)
-
   end
 
   # This processor does not do anything fancy.  All items passed in via args are passed back in api_params
@@ -435,15 +459,6 @@ class ArgumentProcessor
       msg+="Odd number of arguments found"
       raise ParameterError.new(msg,:retry=>true)
     end
-  end
-
-  # array_process is a helper function which takes the incoming arguments
-  # and puts them into an array and returns that result.
-  # empty input results in an empty array
-  # does not perform variable substitution
-  def array_processor(help_func,valid_args,args,user_vars,*options)
-
-    return_helper(safe_split(args))
   end
 
   ##############################################################################################
