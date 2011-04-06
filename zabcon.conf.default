@@ -1,7 +1,38 @@
 server=http://localhost
 username=admin
 password=zabbix
-lines=24
-debug=0
-language=english
-truncate_length=5000
+
+# The following is a list of user editable config file options, the following
+# values are the defaults.  These can be changed as needed.
+
+# Set the debug level.  0=off
+#debug=0
+
+# Attempt to show help for a bad command.
+#show_help=false
+
+# How many lines to print when running interactively before pausing output
+#lines=24
+
+# The default language
+#language="english"
+
+# When debugging api calls, how many characters in the output from the Zabbix
+# server should be displayed before truncation occurs?  When the truncation
+# limit is reached the output is split into two.  The first n/2 characters
+# are printed followed by " ... " then the last n/2 characters are displayed.
+# 0 = do not truncate
+#truncate_length=5000
+
+#output related environment variables
+
+# Are we displaying a well formatted table or csv?  Zabcon will automatically
+# set this variable to true for intaractive use.
+# true = table   false = csv
+#table_output=true
+
+# Print the table header?
+#table_header=true
+
+# The default seperator character for csv output.
+#table_separator=","
