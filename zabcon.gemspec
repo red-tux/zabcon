@@ -27,7 +27,7 @@
 spec = Gem::Specification.new do |s|
   s.name = %q{zabcon}
   s.rubyforge_project = "zabcon"
-  s.version = "0.0.5"
+  s.version = "0.0.6"
   s.authors = ["A. Nelson"]
   s.email = %q{nelsonab@red-tux.net}
   s.summary = %q{Zabcon command line interface for Zabbix}
@@ -35,7 +35,7 @@ spec = Gem::Specification.new do |s|
   s.description = %q{Zabcon is a command line interface for Zabbix written in Ruby}
   s.licenses = "GPL 2.0"
   s.requirements = "Requires zbxapi, parseconfig and highline"
-  s.add_dependency("zbxapi", '>= 0.1')
+  s.add_dependency("zbxapi", '>= 0.1.1')
   s.add_dependency("parseconfig")
   s.add_dependency("highline")
   s.required_ruby_version = '>=1.8.6'
