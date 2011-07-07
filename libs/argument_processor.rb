@@ -91,7 +91,6 @@ class ArgumentProcessor
 
   # converts item to the appropriate data type if need be
   # otherwise it returns item
-  #TODO Migrate from safe_split to split2
   def convert_or_parse(item)
     return item if item.class==Fixnum
     if item.to_i.to_s==item
@@ -101,7 +100,7 @@ class ArgumentProcessor
       return text
     elsif item =~ /^\[(.*?)\]$/
       array_s=Regexp.last_match(1)
-      array=safe_split(array_s,',')
+      p array=array_s.split2(',')
       results=array.collect do |i|
         i.lstrip!
         i.rstrip!
@@ -112,78 +111,13 @@ class ArgumentProcessor
       return true if item.downcase=="true"
       return false
     else
-      array=safe_split(item,',')
+      array=item.split2(',')
       if !array.nil? && array.length<=1
         return item
       else
         return array
       end
     end
-  end
-
-  #splits a line at boundaries defined by boundary.
-  #TODO remove all uses of safe_split and migrate to String::split2
-  def safe_split(line,boundary=nil)
-    debug(9,line,"line")
-    debug(9,boundary,"boundary")
-
-    return line if line.class!=String
-
-    items=[]
-   item=""
-    quoted=false
-    qchar=''
-    splitchar= boundary.nil? ? /\s/ : /#{boundary}/
-    escaped=false  #used for when the escape character "\" is found
-    line.each_char do |char|  # split up incoming line and account for item="stuff n stuff"
-#      p char
-      add_char=true  # are we going to add this character?
-
-      if char=="\\" and !escaped
-        escaped=true  # We've found an escape character which means add the next char'
-        next
-      end
-
-      # puts "char->#{char}, quoted->#{quoted}, qchar->#{qchar}, item->#{item}"
-      if (char !~ splitchar) && (!escaped || !quoted) # add the space if we're in a quoted string and not escaped
-        if !quoted  # This block will group text found inside "" or []
-          if char=='"'    # is the character a quote?
-#            puts "quote found"
-            qchar='"'     # set our end quote character
-            quoted=true  # set our mode to be quoted
-#            add_char=false  # do not add this character
-#          elsif char=='('
-#            qchar=')'
-#            quoted=true
-          elsif char=='['  # is the character a open bracket?
-            qchar=']'      # set our end quote character
-            quoted=true   # enable quoted mode
-          end
-        else   #quoted == false
-          if char==qchar  # we have found our quote boundary
-#            puts "found quote"
-            quoted=false
-#            add_char=false if char=='"' # do not add the character if it is a quote character
-          end
-        end  # end !quoted block
-
-        item<<char if add_char
-#        p item
-
-      elsif escaped || quoted  # add the character since we're escaped'
-        item<<char
-      else  # we have found our split boundary, add the item
-        items<<item if item.length>0
-        item=""
-      end  # end  (char!~splitchar or quoted) && !escaped
-
-      escaped=false  # when we set escape to true we use next to skip the rest of the block
-    end
-    items<<item if item.length>0  # be sure not to forget the last element from the block
-
-    raise ParseError.new("Closing #{qchar} not found!") if quoted
-
-    items
   end
 
   # Params to hash breaks up an incoming line into individual elements.
@@ -197,8 +131,8 @@ class ArgumentProcessor
   # TODO this could use some cleanup.
   def params_to_hash(line)
     debug(5,line,"line")
-    params=safe_split(line)
-    debug(5,params,"After safe_split")
+    params=line.split2
+    debug(5,params,"After split")
 
     retval = {}
     params.each do |item|
@@ -349,7 +283,7 @@ class ArgumentProcessor
     end
 
     if return_array
-      args=safe_split(args)
+      args=args.split2
     else
       args=substitute_vars(args)
       args=params_to_hash(args)
@@ -446,7 +380,7 @@ class ArgumentProcessor
   def hash_processor(help_func,valid_args,args,user_vars,*options)
     debug(6,args,"Args")
     debug(6,options,"Options")
-    items=safe_split(args)
+    items=args.split2
     if items.count % 2 == 0
       rethash={}
       while items.count!=0
@@ -740,7 +674,7 @@ class ArgumentProcessor
 
     args=substitute_vars(args)
 
-    items=safe_split(args)
+    items=args.split2
     method=items[0]
     items.delete_at(0)
     args=items.join(" ")

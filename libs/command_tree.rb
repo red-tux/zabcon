@@ -226,13 +226,14 @@ class Parser
 
     cmd=result[:command]
 
+    command=nil
     if cmd.nil? or cmd[:commandproc].nil? then
       raise ParseError.new("Parse error, incomplete/unknown command: #{str}",:retry=>true)
     elsif cmd[:commandproc]==:help then
       help_proc=lambda {
         cmd[:helpproc].call(self,str)
       }
-      result_cmd.add(:help,nil,nil,help_proc,nil,nil)
+      command=ZabconCommand.new(:help,nil,nil,help_proc,nil,nil)
     else
       # The call here to the argument process requires one argument as it's a lambda block which is setup when the
       # command node is created
@@ -241,8 +242,8 @@ class Parser
       debug(6,args,"received from argument processor")
       retval = args.nil? ? nil : {:proc=>cmd[:commandproc], :helpproc=>cmd[:helpproc], :options=>cmd[:options]}.merge(args)
       command=ZabconCommand.new(retval[:proc], retval[:api_params], retval[:show_params], retval[:helpproc], retval[:options], str)
-      result_cmd.add(command)
     end
+    result_cmd.add(command)
     result_cmd
   end
 
@@ -383,113 +384,27 @@ end
   # The function will recursively insert the command and will remove the top of the input path stack at each level until it
   # finds the appropraite level.  If the appropriate level is never found an exception is raised.
   def do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,depth)
-      debug(11,{"insert_path"=>insert_path, "command"=>command, "commandproc"=>commandproc, "arguments"=> arguments,
-                  "helpproc"=>helpproc, "verify_func"=>argument_processor, "depth"=>depth})
-        debug(11,@command,"self.command")
+    debug(11,{"insert_path"=>insert_path, "command"=>command, "commandproc"=>commandproc, "arguments"=> arguments,
+      "helpproc"=>helpproc, "verify_func"=>argument_processor, "depth"=>depth})
+    debug(11,@command,"self.command")
 #    debug(11,@children.map {|child| child.command},"children")
 
-      if insert_path[0]==@command then
-          debug(11,"Found node")
-            if insert_path.length==1 then
-                debug(11,command,"inserting")
-                  @children << CommandTree.new(command,commandproc,depth+1,arguments,helpproc,argument_processor,options)
-                else
-                    debug(11,"Not found walking tree")
-                      insert_path.shift
-                      if !@children.empty? then
-                          @children.each { |node| node.do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,depth+1)}
-                          else
-                              raise(Command_Tree_Exception,"Unable to find insert point in Command Tree")
-                              end
-                    end
-          end
-  end
-
-=begin
-class CommandTree
-
-  include ZDebug
-
-  attr_reader :command, :commandproc, :children, :arguments, :helpproc, :depth, :argument_processor, :options
-
-  # Arguments hash takes the form of {"name"=>{:type=>Class, :optional=>true/false}}
-  # If type is nil then the argument takes no options
-  def initialize(command,commandproc,depth,arguments,helpproc,argument_processor,options)
-    debug(10,{"command"=>command, "commandproc"=>commandproc, "arguments"=> arguments,"helpproc"=>helpproc,
-              "verify_func"=>argument_processor, "depth"=>depth, "options"=>options})
-    @command=command
-    @commandproc=commandproc
-    @children=[]
-    @arguments=arguments
-    @helpproc=helpproc
-    @depth=depth
-    # verify functions are special.
-    # We pass them the list of valid arguments first and then the parameters which need to be verified
-    # This will allow for either unique or generalized verification functions
-    # The verify function can safely be called with objects with no verify function as nil checking is performed in the
-    # lambda
-    # If no verify function was setup we return true
-    @argument_processor=lambda do |params,user_vars|
-      if argument_processor.nil?
-        nil
+    if insert_path[0]==@command then
+      debug(11,"Found node")
+      if insert_path.length==1 then
+        debug(11,command,"inserting")
+        @children << CommandTree.new(command,commandproc,depth+1,arguments,helpproc,argument_processor,options)
       else
-        argument_processor.call(@helpproc,@arguments,params,user_vars,options)  # We pass the list of valid arguments to
+        debug(11,"Not found walking tree")
+        insert_path.shift
+        if !@children.empty? then
+          @children.each { |node| node.do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,depth+1)}
+        else
+          raise(Command_Tree_Exception,"Unable to find insert point in Command Tree")
+        end
       end
     end
-    if options.nil?
-      @options=nil
-    else
-      @options = Hash[*options.collect { |v|
-        [v, true]
-      }.flatten]
-    end
-    debug(10,self.inspect,"Initialization complete")
   end
-
-  def inspect
-    r_str ="#<#{self.class.to_s}:0x#{self.object_id.to_s(16)} @command=#{@command.inspect}, @commandproc=#{@commandproc.inspect}, "
-    r_str+="@helpproc=#{@helpproc.inspect}, @argument_processor=#{@argument_processor.inspect}, @arguments=#{@arguments.inspect}, "
-    r_str+="@options=#{@options.inspect}, "
-    r_str+="@depth=#{@depth}, @children="
-    if @children.empty?
-      r_str+= "[]"
-    else
-      children=@children.map {|child| child.command }
-      r_str+= children.inspect
-    end
-    r_str+=">"
-    r_str
-  end
-
-  # search will search check to see if the parameter command is found in the current node
-  # or the immediate children nodes.  It does not search the tree beyond one level.
-  # The loggedin argument is used to differentiate searching for commands which require a valid
-  # login or not.  If loggedin is false it will return commands which do not require a valid login.
-  debug(10,self,"self",300)
-
-  return nil if search_path.nil?
-  return nil if search_path.empty?
-
-  retval=nil
-
-  retval=self if search_path[0]==@command
-
-
-  search_path.shift
-  debug(10,search_path, "shifted search path")
-
-  return retval if search_path.length==0
-
-#    p search_path
-#    p @children.map {|child| child.command}
-  debug(10,@children.map{|child| child.command},"Current children")
-
-  results=@children.map {|child| child.command==search_path[0] ? child : nil }
-  results.compact!
-  debug(10,results,"Children search results",200)
-
-end
-=end
 
 
 if __FILE__ == $0
