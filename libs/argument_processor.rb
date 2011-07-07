@@ -34,7 +34,6 @@ require 'libs/zabcon_globals'
 # The args parameter is a hash of the
 
 # All functions for argument processing are in alphabetical order except for default functions which are placed first
-
 class ArgumentProcessor
 
   include ZDebug
@@ -92,6 +91,7 @@ class ArgumentProcessor
 
   # converts item to the appropriate data type if need be
   # otherwise it returns item
+  #TODO Migrate from safe_split to split2
   def convert_or_parse(item)
     return item if item.class==Fixnum
     if item.to_i.to_s==item
@@ -122,6 +122,7 @@ class ArgumentProcessor
   end
 
   #splits a line at boundaries defined by boundary.
+  #TODO remove all uses of safe_split and migrate to String::split2
   def safe_split(line,boundary=nil)
     debug(9,line,"line")
     debug(9,boundary,"boundary")
@@ -195,9 +196,9 @@ class ArgumentProcessor
   #
   # TODO this could use some cleanup.
   def params_to_hash(line)
-    debug(6,line,"line")
+    debug(5,line,"line")
     params=safe_split(line)
-    debug(6,params,"After safe_split")
+    debug(5,params,"After safe_split")
 
     retval = {}
     params.each do |item|

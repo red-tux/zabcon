@@ -18,12 +18,131 @@
 
 ##########################################
 # Subversion information
-# $Id: command_tree.rb 270 2011-01-04 06:13:31Z nelsonab $
-# $Revision: 270 $
+# $Id$
+# $Revision$
 ##########################################
 
 require 'libs/zdebug'
 require 'libs/zabcon_exceptions'
+require 'libs/zabcon_globals'
+require 'libs/argument_processor'
+
+class ZabconCommandBase
+  include ZDebug
+
+  attr_reader :results
+
+  def execute
+    raise "Unitialized base method"
+  end
+
+end
+
+class ZabconCommand < ZabconCommandBase
+
+  class NilCommand < Exception
+  end
+
+  class Exit < Exception
+  end
+
+  #TODO Calling/showing help needs to be streamlined and cleaned up better
+  class Help < Exception
+    attr_reader :obj
+    def initialize(obj)
+      @obj=obj
+    end
+
+    def show_help
+      @obj.help.call
+    end
+  end
+
+
+  attr_reader :show, :options, :help
+
+  def initialize(commandproc=nil,apiparams=nil,showparams=nil,helpproc=nil,options=nil,orig_str=nil)
+#    raise NilCommand if commandproc.nil?
+    @proc=commandproc
+    @args=apiparams
+    @show=showparams
+    @help=helpproc
+    @options=options
+    @orig_str=orig_str
+
+    raise Help.new(self) if commandproc==:help
+
+    @results=nil
+  end
+
+  def execute
+    raise NilCommand if @proc.nil?
+    raise Exit if @proc==:exit
+
+    if @proc==:help
+      @cmd_help.help(@commands,@orig_str)
+    else
+      @results=@proc.call(@args)
+      @printing=@options.nil? ? true : @options[:suppress_printer].nil? ? true : false
+    end
+  end
+end
+
+class ZabconVariableCommand < ZabconCommandBase
+  def initialize(var)
+    @var=var
+  end
+
+  def assign(val)
+    @results=val
+    GlobalVars.instance[@var]=val
+  end
+
+end
+
+class ZabconCommands
+
+  attr_reader :show, :results, :options
+
+  def initialize
+    @commands=[]
+    @printing=true
+  end
+
+  def add(obj)
+    @commands<<obj
+    if obj.class==ZabconCommand
+      @printing=@printing & obj.options[:suppress_printer].nil? ? true : obj.options[:suppress_printer]==true
+      @show=obj.show
+      @options=obj.options
+    end
+
+  end
+
+  def execute
+    stack=[]
+    ptr=0
+    while ptr<@commands.length
+      case @commands[ptr].class.to_s
+        when "ZabconCommand"
+          @commands[ptr].execute
+          @results=@commands[ptr].results
+        when "ZabconVariableCommand"
+          stack<<ptr
+      end
+      ptr+=1
+    end
+
+    while !stack.empty?
+      ptr=stack.pop
+      @commands[ptr].assign(@results)
+    end
+  end
+
+  def printing?
+    @printing
+  end
+end
 
 class Parser
 
@@ -36,22 +155,10 @@ class Parser
     @default_argument_processor=default_argument_processor
   end
 
-  def strip_comments(str)
-    str.lstrip!
-    str.chomp!
-    if str =~ /^ ## .*/ then
-      str = ""
-    elsif str =~ /(.+) ## .*/ then
-      str = Regexp.last_match(1)
-    else
-      str
-    end
-  end
-
   def search(str)
     debug(7,str,"Searching")
 
-    str=strip_comments(str)
+    str=str.strip_comments
 
 
 #    cmd_node=@commands.search(nodes)  # a side effect of the function is that it also manipulates nodes
@@ -62,7 +169,9 @@ class Parser
   end
 
 
-  # Returns nil if the command is incomplete or unknown
+  # Returns an object of type ZabconCommands
+
+  #Returns nil if the command is incomplete or unknown
   # If the command is known the associated argument processor is also called and it's results are returned as part
   # of the return hash
   # the return hash consists of:
@@ -74,10 +183,44 @@ class Parser
   # array of valid arguments and the help function associated with the command.
   # If the argument processor has an error it should call the help function and return nil.  In which case this function
   # will return nil
+  #
+  #TODO this function needs to move away from using so many hashes.
   def parse(str,user_vars=nil)
     debug(7,str,"Parsing")
-#    options=
+
     debug(7,user_vars,"User Variables")
+
+    result_cmd=ZabconCommands.new
+
+    split_str=str.split2('=|\s',true)
+
+    unravel=false  #remove any extra space before the first =
+    split_str2=split_str.map {|item|
+      if unravel
+        item
+      elsif item=="="
+        unravel=true
+        item
+      elsif item.empty?
+        nil
+      elsif item.scan(/\s/).empty?
+        item
+      else
+        nil
+      end
+    }.delete_if {|i| i.nil?}
+
+
+    if !split_str2[1].nil? && split_str2[1]=='='
+      split_str=split_str2  #use the trimmed version
+      var_name=split_str[0].strip
+      raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
+      debug(5,var_name,"Creating Variable assignment")
+      varcmd=ZabconVariableCommand.new(var_name)
+      result_cmd.add(varcmd)
+      str=split_str[2..split_str.length-1].join.strip
+      debug(5,str,"Continuging to parse with")
+    end
 
     result=@commands.get_command(str)
 
@@ -85,6 +228,11 @@ class Parser
 
     if cmd.nil? or cmd[:commandproc].nil? then
       raise ParseError.new("Parse error, incomplete/unknown command: #{str}",:retry=>true)
+    elsif cmd[:commandproc]==:help then
+      help_proc=lambda {
+        cmd[:helpproc].call(self,str)
+      }
+      result_cmd.add(:help,nil,nil,help_proc,nil,nil)
     else
       # The call here to the argument process requires one argument as it's a lambda block which is setup when the
       # command node is created
@@ -92,8 +240,10 @@ class Parser
       args=cmd[:argument_processor].call(result[:parameters],user_vars)
       debug(6,args,"received from argument processor")
       retval = args.nil? ? nil : {:proc=>cmd[:commandproc], :helpproc=>cmd[:helpproc], :options=>cmd[:options]}.merge(args)
-      return retval
+      command=ZabconCommand.new(retval[:proc], retval[:api_params], retval[:show_params], retval[:helpproc], retval[:options], str)
+      result_cmd.add(command)
     end
+    result_cmd
   end
 
   def complete(str,loggedin=false)

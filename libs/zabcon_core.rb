@@ -42,6 +42,7 @@ class ZabconCore
 
   include ZDebug
 
+
   def initialize()
     @env = EnvVars.instance  # make it easier to call the global EnvVars singleton
 
@@ -111,13 +112,14 @@ class ZabconCore
     # These commands do not require a valid login
     @commands.insert ["quit"], :exit
     @commands.insert ["exit"], :exit
-    @commands.insert ["help"], :help,no_args,no_help,@arg_processor.help, :suppress_printer
+    @commands.insert ["help"], :help,no_args,@cmd_help.method(:help),@arg_processor.help, :suppress_printer
 
     @commands.insert ["hisotry"], self.method(:do_history),no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["info"], self.method(:do_info),no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["load"], no_cmd,no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["login"], self.method(:do_login),nil,nil,@arg_processor.method(:login), :suppress_printer
     @commands.insert ["load","config"], @env.method(:load_config),no_args,no_help,no_verify,:suppress_printer
+#    @commands.insert ["print"], self.method(:print_var)
     @commands.insert ["set","debug"], self.method(:set_debug),no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["set","lines"], self.method(:set_lines),no_args,no_help,no_verify,:suppress_printer
     @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
@@ -207,33 +209,25 @@ class ZabconCore
     setupcommands(!@server.nil?)  # If we don't have a valid server we're not logged in'
     begin
       while line=@input.get_line()
-        line=@arg_processor.strip_comments(line)  # use the argument processor's comment stripper'
+        line=line.strip_comments
         next if line.nil?
         next if line.strip.length==0  # don't bother parsing an empty line'
         debug(6, line, "Input from user")
 
-        # this statement calls the command tree parser and sets up rhash
-        # for later use and function calls
-        rhash=@commands.parse(line, @setvars)
+        commands=@commands.parse(line, @setvars)
 
-        debug(6, rhash, "Results from parse")
-
-        next if rhash.nil?
-        case rhash[:proc]
-          when :exit
-            break
-          when :help
-            @cmd_help.help(@commands,line)
-        else
-          if !rhash[:proc].nil?
-            debug(4,rhash,"Calling function",250)
-            results=rhash[:proc].call(rhash[:api_params])
-            printing = rhash[:options].nil? ? true : rhash[:options][:suppress_printer].nil? ? true : false
-            @printer.print(results,rhash[:show_params]) if !results.nil? if printing
-          end
-        end  # case
+        commands.execute
+        @printer.print(commands.results,commands.show) if commands.printing?
 
       end  # while
+    rescue ZabconCommand::Exit
+
+    rescue ZabconCommand::NilCommand
+      retry
+    rescue ZabconCommand::Help => e
+      p e.obj
+      e.show_help
+      retry
     rescue ParseError => e  #catch the base exception class
       e.show_message
       retry if e.retry?
