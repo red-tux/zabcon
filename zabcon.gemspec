@@ -22,12 +22,16 @@
 # $Revision$
 ##########################################
 
-#Zabbix API Ruby Interface GemSpec file
+#Zabcon, the Zabbix Console, GemSpec file
+
+revision="$Revision$"
+result=/[^\d]*(\d*)[^\d]*/.match(revision)
+revision=result[1].to_i
 
 spec = Gem::Specification.new do |s|
   s.name = %q{zabcon}
   s.rubyforge_project = "zabcon"
-  s.version = "0.0.6"
+  s.version = "0.0.#{revision}"
   s.authors = ["A. Nelson"]
   s.email = %q{nelsonab@red-tux.net}
   s.summary = %q{Zabcon command line interface for Zabbix}
@@ -35,16 +39,19 @@ spec = Gem::Specification.new do |s|
   s.description = %q{Zabcon is a command line interface for Zabbix written in Ruby}
   s.licenses = "GPL 2.0"
   s.requirements = "Requires zbxapi, parseconfig and highline"
-  s.add_dependency("zbxapi", '>= 0.1.1')
+  s.add_dependency("zbxapi", '>=0.1.292')
   s.add_dependency("parseconfig")
   s.add_dependency("highline")
   s.required_ruby_version = '>=1.8.6'
   s.require_paths =["."]
   s.files =
-    ["zabcon.rb", "zabcon.conf.default", "README", "libs/argument_processor.rb",
+    ["zabcon.rb", "zabcon.conf.default", "README",
+     "libs/argument_processor.rb", "libs/revision.rb",
      "libs/command_help.rb", "libs/command_tree.rb",
-     "libs/help.xml", "libs/input.rb", "libs/printer.rb", "libs/zabcon_core.rb",
-     "libs/zabcon_exceptions.rb", "libs/zabcon_globals.rb", "libs/zbxcliserver.rb"]
+     "libs/help.xml", "libs/input.rb", "libs/printer.rb",
+      "libs/zabcon_core.rb","libs/zabcon_exceptions.rb",
+      "libs/zabcon_globals.rb", "libs/zabbix_server.rb",
+      "libs/utility_items.rb"]
   s.bindir = "."
   s.executables << "zabcon.rb"
   s.default_executable="zabcon"

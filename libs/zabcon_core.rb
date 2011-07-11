@@ -20,14 +20,16 @@
 
 ##########################################
 # Subversion information
-# $Id: $
+# $Id$
 # $Revision$
 ##########################################
 
+require 'libs/utility_items'
+require 'libs/revision'
 require 'parseconfig'
 require 'ostruct'
 require 'rexml/document'
-require 'libs/zbxcliserver'
+require 'libs/zabbix_server'
 require 'libs/printer'
 require 'libs/zdebug'
 require 'libs/input'
@@ -36,6 +38,8 @@ require 'libs/command_tree'
 require 'libs/argument_processor'
 require 'libs/command_help'
 require 'libs/zabcon_globals'
+require 'libs/zabcon_commands'
+
 
 
 class ZabconCore
@@ -44,28 +48,26 @@ class ZabconCore
 
 
   def initialize()
-    @env = EnvVars.instance  # make it easier to call the global EnvVars singleton
-
     # This must be set first or the debug module will throw an error
-    set_debug_level(@env["debug"])
+    set_debug_level(env["debug"])
 
-    @env.register_notifier("debug",self.method(:set_debug_level))
-    @env.register_notifier("api_debug",self.method(:set_debug_api_level))
+    env.register_notifier("debug",self.method(:set_debug_level))
+    env.register_notifier("api_debug",self.method(:set_debug_api_level))
 
-    @server = nil
-    @callbacks={}
     @printer=OutputPrinter.new
-    @commands=nil
-    @setvars={}
     debug(5,"Setting up help")
-    @cmd_help=CommandHelp.new("english")  # Setup help functions, determine default language to use
-    debug(5,"Setting up ArgumentProcessor")
-    @arg_processor=ArgumentProcessor.new  # Need to instantiate for debug routines
+#    @cmd_help=CommandHelp.new("english")  # Setup help functions, determine default language to use
+    CommandHelp.setup("english")
 
-    if !@env["server"].nil? and !@env["username"].nil? and !@env["password"].nil? then
-      puts "Found valid login credentials, attempting login"  if @env["echo"]
+    #TODO Remove reference to ArgumentProcessor when new command objects in use
+    debug(5,"Setting up ArgumentProcessor")
+#    @arg_processor=ArgumentProcessor.new  # Need to instantiate for debug routines
+
+    if !env["server"].nil? and !env["username"].nil? and !env["password"].nil? then
+      puts "Found valid login credentials, attempting login"  if env["echo"]
       begin
-        do_login({:server=>@env["server"], :username=>@env["username"],:password=>@env["password"]})
+        ZabbixServer.instance.login
+
       rescue ZbxAPI_ExceptionLoginPermission
         puts "Error Invalid login or no API permissions."
       end
@@ -73,13 +75,13 @@ class ZabconCore
 
     debug(5,"Setting up prompt")
     @debug_prompt=false
-    if @env["have_tty"]
+    if env["have_tty"]
       prc=Proc.new do
         debug_part = @debug_prompt ? " #{debug_level}" : ""
-        if @server.nil?
+        if !ZabbixServer.instance.connected?
           " #{debug_part}-> "
         else
-          @server.login? ? " #{debug_part}+> " : " #{debug_part}-> "
+          ZabbixServer.instance.loggedin? ? " #{debug_part}+> " : " #{debug_part}-> "
         end
       end
       @input=Readline_Input.new
@@ -87,146 +89,130 @@ class ZabconCore
     else
       @input=STDIN_Input.new
     end
+
+###############################################################################
+###############################################################################
+    zabconcore=self
+    if @input.respond_to?(:history)
+      ZabconCommand.add_command "history" do
+        set_method { zabconcore.show_history }
+        set_help_tag :history
+      end
+    else
+      ZabconCommand.add_command "history" do
+        set_method { puts "History is not supported by your version of Ruby and ReadLine" }
+        set_help_tag :history
+      end
+    end
+###############################################################################
+###############################################################################
+
+    debug(5,"Setting up custom commands")
+
+    if !env["custom_commands"].nil?
+      filename=nil
+      cmd_file=env["custom_commands"]
+      filename=File.exist?(cmd_file) && cmd_file
+      cmd_file=File::expand_path("~/#{env["custom_commands"]}")
+      filename=File.exist?(cmd_file) && cmd_file if filename.class!=String
+      if filename.class==String
+        puts "Loading custom commands from #{filename}" if env["echo"]
+        begin
+          load filename
+        rescue Exception=> e
+          puts "There was an error loading your custom commands"
+          p e
+        end
+      end
+    end
+
     debug(5,"Setup complete")
   end
 
-  # Argument logged in is used to determine which set of commands to load. If loggedin is true then commands which
-  # require a valid login are loaded
-  def setupcommands(loggedin)
-    debug(5,loggedin,"Starting setupcommands (loggedin)")
-
-    @commands=Parser.new(@arg_processor.default)
-
-    no_cmd=nil
-    no_args=nil
-    no_help=nil
-    no_verify=nil
-
-    login_required = lambda {
-      debug(6,"Lambda 'login_required'")
-      puts "Login required"
-      }
-
-    # parameters for insert:  insert_path, command, commandproc, arguments=[], helpproc=nil, verify_func=nil, options
-
-    # These commands do not require a valid login
-    @commands.insert ["quit"], :exit
-    @commands.insert ["exit"], :exit
-    @commands.insert ["help"], :help,no_args,@cmd_help.method(:help),@arg_processor.help, :suppress_printer
-
-    @commands.insert ["hisotry"], self.method(:do_history),no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["info"], self.method(:do_info),no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["load"], no_cmd,no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["login"], self.method(:do_login),nil,nil,@arg_processor.method(:login), :suppress_printer
-    @commands.insert ["load","config"], @env.method(:load_config),no_args,no_help,no_verify,:suppress_printer
-#    @commands.insert ["print"], self.method(:print_var)
-    @commands.insert ["set","debug"], self.method(:set_debug),no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["set","lines"], self.method(:set_lines),no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
-    @commands.insert ["set","var"], self.method(:set_var), no_args, no_help, @arg_processor.method(:simple_processor),:suppress_printer
-    @commands.insert ["set","env"], self.method(:set_env), no_args, no_help, @arg_processor.method(:simple_processor), :suppress_printer
-    @commands.insert ["show","var"], self.method(:show_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
-    @commands.insert ["show","env"], self.method(:show_env), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
-    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
-
-
-    if loggedin then
-      debug(5,"Inserting commands which require login")
-      # This command tree is for a valid login
-      @commands.insert ["get"], no_cmd, no_args, @cmd_help.method(:get)
-      #Import commented out until fixed
-      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
-
-      @commands.insert ["add","app"], @server.method(:addapp),no_args,no_help,no_verify
-      @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
-      @commands.insert ["add","host"], @server.method(:addhost), no_args, @cmd_help.method(:add_host), @arg_processor.method(:add_host), :server => @server
-      @commands.insert ["add","host","group"], @server.method(:addhostgroup),no_args,no_help,no_verify
-      @commands.insert ["add","item"], @server.method(:additem), no_args, @cmd_help.method(:add_item), @arg_processor.method(:add_item)
-      @commands.insert ["add","link"], @server.method(:addlink),no_args,no_help,no_verify
-      @commands.insert ["add","link","trigger"], @server.method(:addlinktrigger),no_args,no_help,no_verify
-      @commands.insert ["add","sysmap"], @server.method(:addsysmap),no_args,no_help,no_verify
-      @commands.insert ["add","sysmap","element"], @server.method(:addelementtosysmap),no_args,no_help,no_verify
-      @commands.insert ["add","trigger"], @server.method(:addtrigger),no_args,no_help,no_verify
-      @commands.insert ["add","user"], @server.method(:adduser), no_args, @cmd_help.method(:add_user), @arg_processor.method(:add_user)
-      @commands.insert ["add","user","media"], @server.method(:addusermedia),no_args,@cmd_help.method(:add_user_media),no_verify
-
-      @commands.insert ["get","app"], @server.method(:getapp), no_args, no_help, @arg_processor.default_get
-      @commands.insert ["get","host"], @server.method(:gethost), no_args, no_help, @arg_processor.default_get
-      @commands.insert ["get","host","group"], @server.method(:gethostgroup), no_args, no_help, @arg_processor.default_get
-      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
-      @commands.insert ["get","item"], @server.method(:getitem),
-          ['itemids','hostids','groupids', 'triggerids','applicationids','status','templated_items','editable','count','pattern','limit','order', 'show'],
-          @cmd_help.method(:get_item), @arg_processor.default_get
-      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
-      @commands.insert ["get","trigger"], @server.method(:gettrigger), no_args, no_help, @arg_processor.default_get
-      @commands.insert ["get","user"], @server.method(:getuser),['show'], @cmd_help.method(:get_user), @arg_processor.method(:get_user)
-
-      @commands.insert ["delete","user"], @server.method(:deleteuser), ['id'], @cmd_help.method(:delete_user), @arg_processor.method(:delete_user)
-      @commands.insert ["delete","host"], @server.method(:deletehost), no_args, @cmd_help.method(:delete_host), @arg_processor.method(:delete_host)
-      @commands.insert ["delete","item"], @server.method(:deleteitem), ['itemid'], @cmd_help.method(:delete_item), @arg_processor.default
-
-      @commands.insert ["raw","api"], @server.method(:raw_api), no_args, @cmd_help.method(:raw_api), @arg_processor.method(:raw_api)
-      @commands.insert ["raw","json"], @server.method(:raw_json), no_args, @cmd_help.method(:raw_json), @arg_processor.method(:raw_processor)
-
-      @commands.insert ["update","user"], @server.method(:updateuser), no_args, no_help, no_verify
-    else
-      debug(5,"Inserting commands which do not require login")
-      # This command tree is for no login
-      @commands.insert ["add","app"], login_required,no_args,no_help
-      @commands.insert ["add","app","id"], login_required,no_args,no_help
-      @commands.insert ["add","host"], login_required, no_args, @cmd_help.method(:add_host)
-      @commands.insert ["add","host","group"], login_required,no_args,no_help
-      @commands.insert ["add","item"], login_required, no_args, no_help
-      @commands.insert ["add","link"], login_required,no_args,no_help
-      @commands.insert ["add","link","trigger"], login_required,no_args,no_help
-      @commands.insert ["add","sysmap"], login_required,no_args,no_help
-      @commands.insert ["add","sysmap","element"], login_required,no_args,no_help
-      @commands.insert ["add","trigger"], login_required,no_args,no_help
-      @commands.insert ["add","user"], login_required, no_args, @cmd_help.method(:add_user)
-      @commands.insert ["add","user","media"], login_required,no_args,no_help
-
-      @commands.insert ["get","app"], login_required, no_args, no_help
-      @commands.insert ["get","host"], login_required, no_args, no_help
-      @commands.insert ["get","host","group"], login_required, no_args, no_help
-      @commands.insert ["get","host","group","id"], login_required, no_args, no_help
-      @commands.insert ["get","item"], login_required, no_args, no_help
-      @commands.insert ["get","seid"], login_required, no_args, no_help
-      @commands.insert ["get","trigger"], login_required, no_args, no_help
-      @commands.insert ["get","user"], login_required,no_args, @cmd_help.method(:get_user)
-
-      @commands.insert ["delete","user"], login_required, no_args, @cmd_help.method(:delete_user)
-      @commands.insert ["delete","host"], login_required, no_args, @cmd_help.method(:delete_host)
-
-      @commands.insert ["update","user"], login_required, no_args, no_help
-    end
-  end
+#  #TODO The following method may need to be removed when new command object in use
+#  # Argument logged in is used to determine which set of commands to load. If loggedin is true then commands which
+#  # require a valid login are loaded
+#  def setupcommands(loggedin)
+#    debug(5,loggedin,"Starting setupcommands (loggedin)")
+#
+#
+##    no_cmd=nil
+##    no_args=nil
+##    no_help=nil
+##    no_verify=nil
+#
+#    login_required = lambda {
+#      debug(6,"Lambda 'login_required'")
+#      puts "Login required"
+#      }
+#
+#    # parameters for insert:  insert_path, command, commandproc, arguments=[], helpproc=nil, verify_func=nil, options
+#
+#    # These commands do not require a valid login
+#    @commands.insert ["help"], :help,no_args,@cmd_help.method(:help),@arg_processor.help, :suppress_printer
+#
+#    @commands.insert ["set","lines"], self.method(:set_lines),no_args,no_help,no_verify,:suppress_printer
+#    @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
+#    @commands.insert ["set","var"], self.method(:set_var), no_args, no_help, @arg_processor.method(:simple_processor),:suppress_printer
+#    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
+#
+#      debug(5,"Inserting commands which require login")
+#      # This command tree is for a valid login
+#      @commands.insert ["get"], no_cmd, no_args, @cmd_help.method(:get)
+#      #Import commented out until fixed
+#      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
+#
+#      @commands.insert ["add","app"], @server.method(:addapp),no_args,no_help,no_verify
+#      @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
+#      @commands.insert ["add","host"], @server.method(:addhost), no_args, @cmd_help.method(:add_host), @arg_processor.method(:add_host), :server => @server
+#      @commands.insert ["add","host","group"], @server.method(:addhostgroup),no_args,no_help,no_verify
+#      @commands.insert ["add","item"], @server.method(:additem), no_args, @cmd_help.method(:add_item), @arg_processor.method(:add_item)
+#      @commands.insert ["add","link"], @server.method(:addlink),no_args,no_help,no_verify
+#      @commands.insert ["add","link","trigger"], @server.method(:addlinktrigger),no_args,no_help,no_verify
+#      @commands.insert ["add","sysmap"], @server.method(:addsysmap),no_args,no_help,no_verify
+#      @commands.insert ["add","sysmap","element"], @server.method(:addelementtosysmap),no_args,no_help,no_verify
+#      @commands.insert ["add","trigger"], @server.method(:addtrigger),no_args,no_help,no_verify
+#      @commands.insert ["add","user"], @server.method(:adduser), no_args, @cmd_help.method(:add_user), @arg_processor.method(:add_user)
+#      @commands.insert ["add","user","media"], @server.method(:addusermedia),no_args,@cmd_help.method(:add_user_media),no_verify
+#
+#      @commands.insert ["get","app"], @server.method(:getapp), no_args, no_help, @arg_processor.default_get
+#      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
+#      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
+#      @commands.insert ["delete","user"], @server.method(:deleteuser), ['id'], @cmd_help.method(:delete_user), @arg_processor.method(:delete_user)
+#      @commands.insert ["delete","host"], @server.method(:deletehost), no_args, @cmd_help.method(:delete_host), @arg_processor.method(:delete_host)
+#      @commands.insert ["delete","item"], @server.method(:deleteitem), ['itemid'], @cmd_help.method(:delete_item), @arg_processor.default
+#
+#      @commands.insert ["raw","api"], @server.method(:raw_api), no_args, @cmd_help.method(:raw_api), @arg_processor.method(:raw_api)
+#      @commands.insert ["raw","json"], @server.method(:raw_json), no_args, @cmd_help.method(:raw_json), @arg_processor.method(:raw_processor)
+#
+#      @commands.insert ["update","user"], @server.method(:updateuser), no_args, no_help, no_verify
+#  end
 
   def start
     debug(5,"Entering main zabcon start routine")
-    puts "Welcome to Zabcon."  if @env["echo"]
-    puts "Use the command 'help' to get help on commands" if @env["have_tty"] || @env["echo"]
+    puts "Welcome to Zabcon.  Build Number: #{REVISION}"  if env["echo"]
+    puts "Use the command 'help' to get help on commands" if env["have_tty"] || env["echo"]
 
-    setupcommands(!@server.nil?)  # If we don't have a valid server we're not logged in'
     begin
-      while line=@input.get_line()
-        line=line.strip_comments
-        next if line.nil?
-        next if line.strip.length==0  # don't bother parsing an empty line'
-        debug(6, line, "Input from user")
+      catch(:exit) do
+        while line=@input.get_line()
+          line=line.strip_comments
+          next if line.nil?
+          next if line.strip.length==0  # don't bother parsing an empty line'
+          debug(6, line, "Input from user")
 
-        commands=@commands.parse(line, @setvars)
+          commands=ZabconExecuteContainer.new(line)
 
-        commands.execute
-        @printer.print(commands.results,commands.show) if commands.printing?
+          commands.execute
+          @printer.print({:result=>commands.results},commands.show_params) if commands.print?
 
-      end  # while
-    rescue ZabconCommand::Exit
-
-    rescue ZabconCommand::NilCommand
+        end  # while
+      end #end catch
+    rescue Command::ParameterError => e
+      puts e.message
       retry
-    rescue ZabconCommand::Help => e
-      p e.obj
-      e.show_help
+    rescue ZabbixServer::ConnectionProblem => e
+      puts e.message
       retry
     rescue ParseError => e  #catch the base exception class
       e.show_message
@@ -249,7 +235,6 @@ class ZabconCore
         retry
       else
         e.show_message
-#        ddputs "Error: #{e.message}"
         retry if e.retry?
       end
     rescue ZError => e
@@ -260,41 +245,15 @@ class ZabconCore
         puts "A fatal error occurred."
       end
       e.show_message
-#      e.show_backtrace
       retry if e.retry?
     end  #end of exception block
   end # def
 
   def getprompt
   debug_part = @debug_prompt ? " #{debug_level}" : ""
-  if @server.nil?
-      return " #{debug_part}-> "
-  end
-    return @server.login? ? " #{debug_part}+> " : " #{debug_part}-> "
-  end
 
-  def do_history(input)
-    history = @input.history.to_a
-    history.each_index do |index|
-      puts "#{index}: #{history[index]}"
-    end
-  end
-
-  # set_debug is for the callback to set the debug level
-  # todo
-  # This command is now deprecated for "set env debug=n"
-  def set_debug(input)
-    if input["prompt"].nil? then
-      puts "This command is deprecated, please use \"set env debug=n\""
-      @env["debug"]=input.keys[0].to_i
-    else
-      @debug_prompt=!@debug_prompt
-    end
-  end
-
-  def set_debug_api_level(value)
-    puts "inside set_debug_api_level"
-    set_facility_debug_level(:api,value)
+  return " #{debug_part}-> " if @server.nil?
+  @server.login? ? " #{debug_part}+> " : " #{debug_part}-> "
   end
 
   def set_lines(input)
@@ -317,32 +276,26 @@ class ZabconCore
     @printer.sheight = 24 if @printer.sheight==0
   end
 
+  def set_debug(input)
+    if input["prompt"].nil? then
+      puts "This command is deprecated, please use \"set env debug=n\""
+      @env["debug"]=input.keys[0].to_i
+    else
+      @debug_prompt=!@debug_prompt
+    end
+  end
+
+  def set_debug_api_level(value)
+    puts "inside set_debug_api_level"
+    set_facility_debug_level(:api,value)
+  end
+
   def set_var(input)
     debug(6,input)
     input.each {|key,val|
       GlobalVars.instance[key]=val
       puts "#{key} : #{val.inspect}"
     }
-  end
-
-  def show_var(input)
-    if input.empty?
-      if GlobalVars.instance.empty?
-        puts "No variables defined"
-      else
-        GlobalVars.instance.each { |key,val|
-          puts "#{key} : #{val.inspect}"
-        }
-      end
-    else
-      input.each { |item|
-        if GlobalVars.instance[item].nil?
-          puts "#{item} *** Not Defined ***"
-        else
-          puts "#{item} : #{GlobalVars.instance[item].inspect}"
-        end
-      }
-    end
   end
 
   def unset_var(input)
@@ -358,78 +311,6 @@ class ZabconCore
         end
       }
     end
-  end
-
-  def set_env(input)
-    input.each{|key,val|
-      @env[key]=val
-      puts "#{key} : #{val.inspect}"
-    }
-  end
-
-  def show_env(input)
-    if input.empty?
-      if @env.empty?
-        puts "No variables defined"
-      else
-        @env.each { |key,val|
-          puts "#{key} : #{val.inspect}"
-        }
-      end
-    else
-      input.each { |item|
-        if @env[item].nil?
-          puts "#{item} *** Not Defined ***"
-        else
-          puts "#{item} : #{@env[item].inspect}"
-        end
-      }
-    end
-  end
-
-  # Load a configuration stored in a file
-  # many things can be passed in
-  # 1) an OpenStruct list of command line parameters which will overload the parameters
-  #    stored in the file
-  # 2) A Hash with a key :filename
-  # 3) If nil or empty the class variable @conffile will be used
-
-  def do_login(params)
-    url = params[:server]
-    username = params[:username]
-    password = params[:password]
-
-    begin
-      @server = ZbxCliServer.new(url,username,password,debug_level)
-      puts "#{url} connected"  if @env["echo"]
-      puts "API Version: #{@server.version}"  if @env["echo"]
-
-      setupcommands(true)
-      return true
-    rescue ZbxAPI_ExceptionBadAuth
-      puts "Login error, incorrect login information"
-      puts "Server: #{url}   User: #{username}  password: #{password}"   # will need to remove password in later versions
-      return false
-    rescue ZbxAPI_ExceptionBadServerUrl
-      puts "Login error, unable to connect to host or bad host name: '#{url}'"
-#    rescue ZbxAPI_ExceptionConnectionRefused
-#      puts "Server refused connection, is url correct?"
-    end
-  end
-
-  def do_info(input)
-    puts "Current settings"
-    puts "Server"
-    if @server.nil?
-      puts "Not connected"
-    else
-      puts " Server Name: %s" % @server.server_url
-      puts " Username: %-15s Password: %-12s" % [@server.user, Array.new(@server.password.length,'*')]
-    end
-    puts "Display"
-    puts " Current screen length #{@env["sheight"]}"
-    puts "Other"
-    puts " Debug level %d" % @env["debug"]
   end
 
 #
@@ -718,6 +599,10 @@ class ZabconCore
     end # End Sysmap loop
 
   end # end do_import
+
+###############################################################################
+###############################################################################
+
 
 end #end class
 

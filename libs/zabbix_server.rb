@@ -25,13 +25,14 @@
 require 'zbxapi'
 require 'libs/zdebug'
 require 'libs/zabcon_globals'
+require 'libs/command_tree'
 
-class ZabbixServer < ZabbixAPI
+class ZabbixServer_overload < ZabbixAPI
   alias zbxapi_initialize initialize
   alias zbxapi_do_request do_request
 
   def initialize(url,debug_level=0)
-    @env = EnvVars.instance
+    @env = env
     zbxapi_initialize(url,debug_level)
   end
 
@@ -41,86 +42,142 @@ class ZabbixServer < ZabbixAPI
   end
 end
 
-class ZbxCliServer
+class ZabbixServer
 
+  include Singleton
   include ZDebug
 
-  attr_reader :server_url, :user, :password
+  class ConnectionProblem < Exception
+    def initialize(msg)
+      @msg=msg
+    end
 
-  def initialize(server,user,password,debuglevel=0)
-    @server_url=server
-    @user=user
-    @password=password
-    @debuglevel=debuglevel
-    # *Note* Do not rescue errors here, rescue in function that calls this block
-    @server=ZabbixServer.new(@server_url,@debuglevel)
-    @server.login(@user, @password)
-    GlobalVars.instance["auth"]=@server.auth
+    def message
+      "There was a problem connecting to the Zabbix server: #{@msg}"
+    end
   end
 
-  def debuglevel=(level)
-    @server.debug_level=level
+  attr_accessor :server_url, :username, :password
+  attr_reader :version, :connected, :connection
+
+  def initialize
+    @server_url=nil
+    @username=nil
+    @password=nil
+    @connected=false
+    @version=nil
+    @connection=nil
   end
 
-  def login?
-    !@server.nil?
+  #login
+  # Perform the actual login to the Zabbix server
+  # If the object variables url, username, and password have not been
+  # set previously, an attempt will be made to use the global environment
+  # variables.  If that does not work an exception will be raised.
+  def login
+    @server_url = @server_url.nil? ? env["server"] : @server_url
+    @username = @username.nil? ? env["username"] : @username
+    @password = @password.nil? ? env["password"] : @password
+
+    error_msg=[]
+    error_msg<<"Url not set" if @server_url.nil?
+    error_msg<<"Username not set" if @username.nil?
+    error_msg<<"Password not set" if @password.nil?
+
+    raise ConnectionProblem.new(error_msg.join(", ")) if !error_msg.empty?
+
+    @connection = ZabbixServer_overload.new(@server_url,env["debug"])
+    @connection.login(@username,@password)
+    @connected=true
+    GlobalVars.instance["auth"]=@connection.auth
+    @version=@connection.API_version
+    puts "#{@server_url} connected"  if env["echo"]
+    puts "API Version: #{@version}"  if env["echo"]
+
+  end
+
+  def logout
+    begin
+      @connection.logout
+    rescue ZbxAPI_GeneralError => e
+      #if it's -32400, it's probably because the function does not exist.
+      raise e if e.message["code"]!=-32400
+    ensure
+      @connection=nil
+      @connected=false
+      @version=nil
+      GlobalVars.instance.delete("auth")
+      puts "Logout complete from #{@server_url}" if env["echo"]
+    end
+  end
+
+  def loggedin?
+    @connected
+  end
+
+  #TODO come back and finish the class to have automated
+  #timeout of the connection, and improve the usability of
+  #this function which should tell you if you have a valid
+  #connection or not, which includes timeout and login.
+  def connected?
+    @connected
   end
 
   def version
-    @server.API_version
+    @connection.API_version
   end
 
   def reconnect
-    @server.login(@user,@password)
+    @connection.login(@user,@password)
   end
 
-  def getuser(parameters)
-    debug(6,parameters)
-
-    result=@server.user.get(parameters)
-    {:class=>:user, :result=>result}
-  end
-
-  def gethost(parameters)
-    debug(6,parameters)
-
-    result=@server.host.get(parameters)
-    {:class=>:host, :result=>result}
-  end
+#  def getuser(parameters)
+#    debug(6,parameters)
+#
+#    result=@connection.user.get(parameters)
+#    {:class=>:user, :result=>result}
+#  end
+#
+#  def gethost(parameters)
+#    debug(6,parameters)
+#
+#    result=@connection.host.get(parameters)
+#    {:class=>:host, :result=>result}
+#  end
 
   def addhost(parameters)
     debug(6,parameters)
-    result=@server.host.create(parameters)
+    result=@connection.host.create(parameters)
     {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
   end
 
   def deletehost(parameters)
     debug(6,parameters)
-    result=@server.host.delete(parameters)
+    result=@connection.host.delete(parameters)
     {:class=>:host, :message=>"The following host(s) was/were deleted: #{result['hostids']}", :result=>result}
   end
 
   def getitem(parameters)
     debug(6,parameters)
 
-    result=@server.item.get(parameters)
+    result=@connection.item.get(parameters)
     {:class=>:item, :result=>result}
   end
 
   def additem(parameters)
     debug(6,parameters)
-    {:class=>:item, :result=>@server.item.create(parameters)}
+    {:class=>:item, :result=>@connection.item.create(parameters)}
   end
 
   def deleteitem(parameters)
     debug(6,parameters)
-    {:class=>:item, :result=>@server.item.delete(parameters)}
+    {:class=>:item, :result=>@connection.item.delete(parameters)}
   end
 
   def adduser(parameters)
     debug(6,parameters)
     begin
-      uid=@server.user.create(parameters)
+      uid=@connection.user.create(parameters)
       puts "Created userid: #{uid["userids"]}"
     rescue ZbxAPI_ParameterError => e
       puts "Add user failed, error: #{e.message}"
@@ -136,12 +193,12 @@ class ZbxCliServer
 #    end
 
     if !parameter["name"].nil?
-      users=@server.user.get({"pattern"=>parameter["name"], "extendoutput"=>true})
+      users=@connection.user.get({"pattern"=>parameter["name"], "extendoutput"=>true})
       users.each { |user| id=user["userid"] if user["alias"]==parameter }
     else
       id=parameter["id"]
     end
-    result=@server.user.delete(id)
+    result=@connection.user.delete(id)
     if !result.empty?
       puts "Deleted user id #{result["userids"]}"
     else
@@ -171,7 +228,7 @@ class ZbxCliServer
       elsif parameters["userid"].nil?
         puts "Missing required userid statement."
       end
-      p @server.user.update([parameters])  #TODO: remove print statement or comment if needed
+      p @connection.user.update([parameters])  #TODO: remove print statement or comment if needed
     end
   end
 
@@ -196,7 +253,7 @@ class ZbxCliServer
         puts "Missing required userid statement."
       end
       begin
-        @server.user.addmedia(parameters)
+        @connection.user.addmedia(parameters)
       rescue ZbxAPI_ParameterError => e
         puts e.message
       end
@@ -206,45 +263,45 @@ class ZbxCliServer
 
   def addhostgroup(parameters)
     debug(6,parameters)
-    result = @server.hostgroup.create(parameters)
+    result = @connection.hostgroup.create(parameters)
     {:class=>:hostgroup, :result=>result}
   end
 
   def gethostgroup(parameters)
     debug(6,parameters)
 
-    result=@server.hostgroup.get(parameters)
+    result=@connection.hostgroup.get(parameters)
     {:class=>:hostgroup, :result=>result}
   end
 
   def gethostgroupid(parameters)
     debug(6,parameters)
-    result = @server.hostgroup.getObjects(parameters)
+    result = @connection.hostgroup.getObjects(parameters)
     {:class=>:hostgroupid, :result=>result}
   end
 
   def getapp(parameters)
     debug(6,parameters)
 
-    result=@server.application.get(parameters)
+    result=@connection.application.get(parameters)
     {:class=>:application, :result=>result}
   end
 
   def addapp(parameters)
     debug(6,parameters)
-    result=@server.application.create(parameters)
+    result=@connection.application.create(parameters)
     {:class=>:application, :result=>result}
   end
 
   def getappid(parameters)
     debug(6,parameters)
-    result=@server.application.getid(parameters)
+    result=@connection.application.getid(parameters)
     {:class=>:application, :result=>result}
   end
 
   def gettrigger(parameters)
     debug(6,parameters)
-    result=@server.trigger.get(parameters)
+    result=@connection.trigger.get(parameters)
     {:class=>:trigger, :result=>result}
   end
 
@@ -253,50 +310,50 @@ class ZbxCliServer
   # { { expression, description, type, priority, status, comments, url }, { ...} }
   def addtrigger(parameters)
     debug(6,parameters)
-    result=@server.trigger.create(parameters)
+    result=@connection.trigger.create(parameters)
     {:class=>:trigger, :result=>result}
   end
 
   def addlink(parameters)
     debug(6,parameters)
-    result=@server.sysmap.addlink(parameters)
+    result=@connection.sysmap.addlink(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addsysmap(parameters)
     debug(6,parameters)
-    result=@server.sysmap.create(parameters)
+    result=@connection.sysmap.create(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addelementtosysmap(parameters)
     debug(6,parameters)
-    result=@server.sysmap.addelement(parameters)
+    result=@connection.sysmap.addelement(parameters)
     {:class=>:map, :result=>result}
   end
 
   def getseid(parameters)
     debug(6,parameters)
-    result=@server.sysmap.getseid(parameters)
+    result=@connection.sysmap.getseid(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addlinktrigger(parameters)
     debug(6,parameters)
-    result=@server.sysmap.addlinktrigger(parameters)
+    result=@connection.sysmap.addlinktrigger(parameters)
     {:class=>:map, :result=>result}
   end
 
   def raw_api(parameters)
     debug(6,parameters)
-    result=@server.raw_api(parameters[:method],parameters[:params])
+    result=@connection.raw_api(parameters[:method],parameters[:params])
     {:class=>:raw, :result=>result}
   end
 
   def raw_json(parameters)
     debug(6,parameters)
     begin
-      result=@server.do_request(parameters)
+      result=@connection.do_request(parameters)
       {:class=>:raw, :result=>result["result"]}
     rescue ZbxAPI_GeneralError => e
       puts "An error was received from the Zabbix server"
@@ -319,7 +376,7 @@ end
 ##############################################
 
 if __FILE__ == $0
-  zbxcliserver = ZbxCliServer.new("http://localhost/","apitest","test")   #Change as appropriate for platform
+  zbxcliserver = ZabbixServer.new("http://localhost/","apitest","test")   #Change as appropriate for platform
 
   p zbxcliserver.getuser(nil)
 end

@@ -22,12 +22,13 @@
 # $Revision$
 ##########################################
 
+require 'singleton'
 require 'libs/zdebug'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
 require 'libs/argument_processor'
 
-class ZabconCommandBase
+class ZabconExecuteBase
   include ZDebug
 
   attr_reader :results
@@ -38,12 +39,9 @@ class ZabconCommandBase
 
 end
 
-class ZabconCommand < ZabconCommandBase
+class ZabconExecuteCommand < ZabconExecuteBase
 
   class NilCommand < Exception
-  end
-
-  class Exit < Exception
   end
 
   #TODO Calling/showing help needs to be streamlined and cleaned up better
@@ -58,37 +56,43 @@ class ZabconCommand < ZabconCommandBase
     end
   end
 
+  attr_reader :show_params, :options, :help
 
-  attr_reader :show, :options, :help
-
-  def initialize(commandproc=nil,apiparams=nil,showparams=nil,helpproc=nil,options=nil,orig_str=nil)
-#    raise NilCommand if commandproc.nil?
-    @proc=commandproc
-    @args=apiparams
-    @show=showparams
-    @help=helpproc
-    @options=options
-    @orig_str=orig_str
-
-    raise Help.new(self) if commandproc==:help
+  #Configure the command item
+  #Also perform the necessary argument processing at this step.
+  def initialize(cmd_obj)
+    raise "cmd_obj must be fo type CommandList::Cmd" if cmd_obj.class!=CommandList::Cmd
 
     @results=nil
+    @proc=cmd_obj.command_obj.method(:execute)
+    @command_obj=cmd_obj.command_obj
+    begin
+      arg_result=@command_obj.call_arg_processor(cmd_obj.parameters)
+    rescue ParameterError => e
+      e.help_func=cmd_obj.command_obj.help_method
+      raise e
+    end
+    @cmd_params=arg_result.cmd_params
+    @show_params=arg_result.show_params
+    @printing=cmd_obj.command_obj.print?
+    @command_name=cmd_obj.command_obj.command_name
+#    @help=cmd_obj.help
+#    @options=options
+
+  end
+
+  def print?
+    @printing==true
   end
 
   def execute
-    raise NilCommand if @proc.nil?
-    raise Exit if @proc==:exit
 
-    if @proc==:help
-      @cmd_help.help(@commands,@orig_str)
-    else
-      @results=@proc.call(@args)
-      @printing=@options.nil? ? true : @options[:suppress_printer].nil? ? true : false
-    end
+    @results=@command_obj.execute(@cmd_params)
+
   end
 end
 
-class ZabconVariableCommand < ZabconCommandBase
+class ZabconExecuteVariable < ZabconExecuteBase
   def initialize(var)
     @var=var
   end
@@ -100,99 +104,17 @@ class ZabconVariableCommand < ZabconCommandBase
 
 end
 
-class ZabconCommands
+class ZabconExecuteContainer
 
-  attr_reader :show, :results, :options
+  attr_reader :show_params, :results, :options
 
-  def initialize
+  def initialize(usr_str)
+    @initial_string=usr_str
     @commands=[]
     @printing=true
-  end
+    commandlist=CommandList.instance
 
-  def add(obj)
-    @commands<<obj
-    if obj.class==ZabconCommand
-      @printing=@printing & obj.options[:suppress_printer].nil? ? true : obj.options[:suppress_printer]==true
-      @show=obj.show
-      @options=obj.options
-    end
-
-  end
-
-  def execute
-    stack=[]
-    ptr=0
-    while ptr<@commands.length
-      case @commands[ptr].class.to_s
-        when "ZabconCommand"
-          @commands[ptr].execute
-          @results=@commands[ptr].results
-        when "ZabconVariableCommand"
-          stack<<ptr
-      end
-      ptr+=1
-    end
-
-    while !stack.empty?
-      ptr=stack.pop
-      @commands[ptr].assign(@results)
-    end
-  end
-
-  def printing?
-    @printing
-  end
-end
-
-class Parser
-
-  include ZDebug
-
-  attr_reader :commands
-
-  def initialize(default_argument_processor)
-    @commands=NewCommandTree.new
-    @default_argument_processor=default_argument_processor
-  end
-
-  def search(str)
-    debug(7,str,"Searching")
-
-    str=str.strip_comments
-
-
-#    cmd_node=@commands.search(nodes)  # a side effect of the function is that it also manipulates nodes
-     cmd_node=@commands.get_command(str)
-    debug(7,cmd_node,"search result")
-    return cmd_node[:command],cmd_node[:parameters]
-
-  end
-
-
-  # Returns an object of type ZabconCommands
-
-  #Returns nil if the command is incomplete or unknown
-  # If the command is known the associated argument processor is also called and it's results are returned as part
-  # of the return hash
-  # the return hash consists of:
-  # :proc - the name of the procedure which will execute the associated command
-  # :api_params - parameters to pass to the API call
-  # :show_params - parameters to pass to the print routines
-  # :helpproc - help procedure associated with the command
-  # The argument processor function is passed a string of the arguments after the command, along with the
-  # array of valid arguments and the help function associated with the command.
-  # If the argument processor has an error it should call the help function and return nil.  In which case this function
-  # will return nil
-  #
-  #TODO this function needs to move away from using so many hashes.
-  def parse(str,user_vars=nil)
-    debug(7,str,"Parsing")
-
-    debug(7,user_vars,"User Variables")
-
-    result_cmd=ZabconCommands.new
-
-    split_str=str.split2('=|\s',true)
+    split_str=usr_str.split2(:split_char=>'=|\s', :include_split=>true)
 
     unravel=false  #remove any extra space before the first =
     split_str2=split_str.map {|item|
@@ -210,90 +132,237 @@ class Parser
       end
     }.delete_if {|i| i.nil?}
 
-
     if !split_str2[1].nil? && split_str2[1]=='='
       split_str=split_str2  #use the trimmed version
       var_name=split_str[0].strip
       raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
+
       debug(5,var_name,"Creating Variable assignment")
-      varcmd=ZabconVariableCommand.new(var_name)
-      result_cmd.add(varcmd)
-      str=split_str[2..split_str.length-1].join.strip
+      add(ZabconExecuteVariable.new(var_name))
+
+      usr_str=split_str[2..split_str.length-1].join.strip
       debug(5,str,"Continuging to parse with")
     end
 
-    result=@commands.get_command(str)
+    cmd=commandlist.find_and_parse(usr_str)
+    add(ZabconExecuteCommand.new(cmd))
 
-    cmd=result[:command]
-
-    command=nil
-    if cmd.nil? or cmd[:commandproc].nil? then
-      raise ParseError.new("Parse error, incomplete/unknown command: #{str}",:retry=>true)
-    elsif cmd[:commandproc]==:help then
-      help_proc=lambda {
-        cmd[:helpproc].call(self,str)
-      }
-      command=ZabconCommand.new(:help,nil,nil,help_proc,nil,nil)
-    else
-      # The call here to the argument process requires one argument as it's a lambda block which is setup when the
-      # command node is created
-      debug(6,result[:parameters],"calling argument processor")
-      args=cmd[:argument_processor].call(result[:parameters],user_vars)
-      debug(6,args,"received from argument processor")
-      retval = args.nil? ? nil : {:proc=>cmd[:commandproc], :helpproc=>cmd[:helpproc], :options=>cmd[:options]}.merge(args)
-      command=ZabconCommand.new(retval[:proc], retval[:api_params], retval[:show_params], retval[:helpproc], retval[:options], str)
-    end
-    result_cmd.add(command)
-    result_cmd
   end
 
-  def complete(str,loggedin=false)
-    nodes = str.split
-    cmd_node=@commands
-    i=0
-    while i<nodes.length
-      tmp=cmd_node.search(nodes[i])
-      break if tmp.nil?
-      cmd_node=tmp
-      i+=1
-    end
-
-    if cmd_node.commandproc.nil? then
-      # roll up the list of available commands.
-      commands = cmd_node.children.collect {|node| node.command}
-
-      # don't include the current node if the command is empty
-      if cmd_node.command!="" then commands += [cmd_node.command] end
-      return commands
-    else
-      puts "complete"
-      return nil
-    end
+  def print?
+    @printing==true   #Ensure we get a boolean ;-)
   end
 
-  def insert(insert_path,commandproc,arguments=[],helpproc=nil,argument_processor=nil,*options)
-    debug(10,{"insert_path"=>insert_path, "commandproc"=>commandproc, "arguments"=> arguments, "helpproc"=>helpproc, "argument_processor"=>argument_processor, "options"=>options})
-#   insert_path_arr=[""]+insert_path.split   # we must pre-load our array with a blank node at the front
-#    p insert_path_arr
+  def add(obj)
+    raise "Expected ZabconExecuteCommand Class" if obj.class!=ZabconExecuteCommand
+    @commands<<obj
+    if obj.class==ZabconExecuteCommand
+      @printing=@printing & obj.print?
+      @show_params=obj.show_params
+      @options=obj.options
+    end
 
-    # If the parameter "argument_processor" is nil use the default argument processor
-    arg_processor = argument_processor.nil? ? @default_argument_processor : argument_processor
-    @commands.insert(insert_path,commandproc,arguments,helpproc,arg_processor,options)
+  end
+
+  def execute
+    stack=[]
+    ptr=0
+    while ptr<@commands.length
+      case @commands[ptr].class.to_s
+        when "ZabconExecuteCommand"
+          @commands[ptr].execute
+          @results=@commands[ptr].results
+        when "ZabconExecuteVariable"
+          stack<<ptr
+      end
+      ptr+=1
+    end
+
+    while !stack.empty?
+      ptr=stack.pop
+      @commands[ptr].assign(@results)
+    end
   end
 
 end
 
-#{"add"=>{:node=>proc, "host"=>{:node=>proc,"group"=>{:node=>proc}}},"delete"=>...}
+class Command
+  attr_reader :str, :aliases, :argument_processor, :flags, :valid_args
+  attr_reader :help_tag
 
-class NewCommandTree
-  include ZDebug
+  include ArgumentProcessor
 
-  def initialize
-    @tree = {}
+  class Arguments
+    attr_accessor :cmd_params, :show_params
+
+    def initialize(args, flags)
+      if args.class==String
+        @cmd_params=args
+        @show_params=nil
+      else
+        raise "Unknown Argument Object type: #{args.class}" if args.class!=Array && args.class!=Hash
+
+        @cmd_params=args
+        @show_params = {}
+        if args.class!=Array && (args["show"] || flags[:default_cols])
+          show=args["show"] || flags[:default_cols]
+          @show_params={:show=>show}
+          @cmd_params.delete("show") if args["show"]
+          @cmd_params.merge!({"extendoutput"=>true})
+        end
+      end
+    end
   end
 
-  def insert(insert_path,commandproc,arguments,helpproc,argument_processor,options)
-    tree_node=@tree
+  class LoginRequired < Exception
+  end
+
+  class ParameterError < Exception
+  end
+
+  class ArgumentError < Exception
+  end
+
+  def initialize(path)
+    raise "Path must be an array" if path.class!=Array
+    @path=path
+    @cmd_method=nil
+    @valid_args=[]
+    @aliases=[]
+    @flags={}
+
+    #TODO Can the argument processor stuff be cleaned up?
+    @argument_processor=method(:default_processor)
+    @help_tag=nil
+  end
+
+  def command_name
+    @path.join(" ")
+  end
+
+  def print?
+    if @flags.nil?
+      false
+    else
+      @flags[:print_output]==true
+    end
+  end
+
+  def set_method(&cmd_method)
+    @cmd_method=cmd_method
+  end
+
+  def add_alias(name)
+    @aliases<<name.split2
+  end
+
+  def alias_total
+    @aliases.length
+  end
+
+  def generate_alias(index)
+    raise "Index out of bounds 0 >= i < N, i=#{index} N=#{alias_total}" if index<0 || index>=alias_total
+    new_alias=self.dup
+    new_alias.instance_variable_set("@path",@aliases[index])
+    new_alias.instance_variable_set("@aliases",[])
+    new_alias
+  end
+
+  #accepts an array of valid arguments
+  def set_valid_args(args)
+    @valid_args=args
+  end
+
+  def default_show(cols)
+    raise "Cols must be an array" if cols.class!=Array
+    @flags[:default_cols]=cols
+  end
+
+  def arg_processor(&block)
+    @argument_processor=block
+  end
+
+  def set_arg_processor(method)
+    @argument_processor=method
+  end
+
+  def set_help_tag(sym)
+    @help_tag=sym
+  end
+
+  #TODO Complete type casting section and add error checking
+  def set_flag(flag)
+    case flag.class.to_s
+      when "Symbol"
+        flag={flag=>true}
+    end
+
+    @flags.merge!(flag)
+  end
+
+  def call_arg_processor(parameters)
+    result=@argument_processor.call(parameters,@valid_args,@flags)
+    return result if result.class==Arguments
+    if result.class!=String && result.class!=Hash && result.class!=Array
+      raise ("Arugment processor for \"#{command_name}\" returned invalid parameters: class: #{result.class}, #{result}")
+    else
+      Arguments.new(result,@flags)
+    end
+  end
+
+  def execute(parameters)
+    if !@flags.nil? && @flags[:login_required] && !server.connected?
+      raise LoginRequired.new("\"#{@command_name}\" requires an active login")
+    end
+
+    @cmd_method.call(parameters)
+  end
+
+  private
+
+  def parameter_error(msg)
+    raise ParameterError.new(msg)
+  end
+
+  def server
+    ZabbixServer.instance
+  end
+
+  def global_vars
+    GlobalVars.instance
+  end
+end
+
+class CommandList
+  include ZDebug
+  include Singleton
+
+   class InvalidCommand < Exception
+    def initialize(str)
+      @str=str
+    end
+
+    def message
+      "Unknown or Invalid Command: #{@str}"
+    end
+  end
+
+  class Cmd
+    attr_reader :command_obj, :parameters
+
+    def initialize(command_obj,parameters)
+      @command_obj=command_obj
+      @parameters=parameters
+    end
+  end  #End Cmd sub class
+
+  def initialize
+    @cmd_tree={}
+  end
+
+  def insert(insert_path, cmd_obj)
+    raise "Insert_path must be an array" if insert_path.class!=Array
+    tree_node=@cmd_tree
     path_length=insert_path.length-1
     insert_path.each_index do |index|
       if tree_node[insert_path[index]].nil?
@@ -301,155 +370,93 @@ class NewCommandTree
           tree_node[insert_path[index]]={}
           tree_node=tree_node[insert_path[index]]
         else
-          local_arg_processor=lambda do |params,user_vars|
-  	        if argument_processor.nil?
-	            nil
-	          else
-	            argument_processor.call(helpproc,arguments,params,user_vars,options)  # We pass the list of valid arguments to
-	         end
-          end
-          if options.nil?
-  	        local_options=nil
-	        else
-	          local_options = Hash[*options.collect { |v|
-	            [v, true]
-	          }.flatten]
-	        end
-          tree_node[insert_path[index]]={:node=>
-            {:commandproc=>commandproc, :arguments=>arguments, :helpproc=>helpproc,
-             :argument_processor=>local_arg_processor,:options=>local_options}}
+          tree_node[insert_path[index]]={:node=>cmd_obj}
         end
       else
         tree_node=tree_node[insert_path[index]]
       end
     end
+
+    (0..(cmd_obj.alias_total-1)).each {|i|
+      insert(cmd_obj.aliases[i],cmd_obj.generate_alias(i))} if cmd_obj.alias_total>0
   end
 
-  #get_command(String)
-  #returns a Hash with two items: :command and :parameters
-  #:command is a hash denoting all of the components of a the command when it was inserted
-  #:parameters is the remainder of the String passed in.
-  #
-  #example:
-  #  get_command("get host show=all")
-  #  {:command=>{hash created from insert}, :parameters=>"show=all"}
-  #
-  #  get_command("get host test           test2")
-  #  {:command=>{hash created from insert}, :parameters=>"test           test2"
-    def get_command(str)
-    str_array=str.downcase.split  #ensure all comparisons are done in lower case
-    str_items=str_array.length
+  def get(path)
+    path=setup_path(path)
 
-    cur_node=@tree
+    cur_node=@cmd_tree
     count=0
 
-    str_array.collect do |item|
+    path.collect do |item|
       break if cur_node[item].nil?
       count+=1
 
       cur_node=cur_node[item]
     end
 
-    cmd= cur_node.nil? ? nil : cur_node[:node]
-
-    #remove preceding items found so we can return the remainder
-    #as the parameters
-    count.times do |i|
-      str=str.gsub(/^#{str_array[i]}/,"")
-      str=str.gsub(/^\s*/,"")
-    end
-
-    {:command=>cmd,:parameters=>str}
+    cmd=cur_node.nil? ? nil : cur_node[:node]
   end
 
-end
-  def search(search_path)
-      debug(10,search_path,"search_path")
-    return retval if results.empty?  # no more children to search, return retval which may be self or nil, see logic above
-        debug(10)
+  def find_and_parse(str)
+    str_array=str.split2(:include_split=>true)
+    str_items=str_array.length
 
-        return results[0].search(search_path)
-        debug(10,"Not digging deeper")
+    cur_node=@cmd_tree
+    count=0
 
-        return self if search_path[0]==@command
-
-      end
-
-  def insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options)
-      do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,0)
-      end
-
-  # Insert path is the path to insert the item into the tree
-  # Insert path is passed in as an array of names which associate with pre-existing nodes
-  # The function will recursively insert the command and will remove the top of the input path stack at each level until it
-  # finds the appropraite level.  If the appropriate level is never found an exception is raised.
-  def do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,depth)
-    debug(11,{"insert_path"=>insert_path, "command"=>command, "commandproc"=>commandproc, "arguments"=> arguments,
-      "helpproc"=>helpproc, "verify_func"=>argument_processor, "depth"=>depth})
-    debug(11,@command,"self.command")
-#    debug(11,@children.map {|child| child.command},"children")
-
-    if insert_path[0]==@command then
-      debug(11,"Found node")
-      if insert_path.length==1 then
-        debug(11,command,"inserting")
-        @children << CommandTree.new(command,commandproc,depth+1,arguments,helpproc,argument_processor,options)
+    str_array.each do |item|
+      if item.empty? || !item.scan(/^\s*$/).empty?
+        count+=1
       else
-        debug(11,"Not found walking tree")
-        insert_path.shift
-        if !@children.empty? then
-          @children.each { |node| node.do_insert(insert_path,command,commandproc,arguments,helpproc,argument_processor,options,depth+1)}
-        else
-          raise(Command_Tree_Exception,"Unable to find insert point in Command Tree")
-        end
+        break if cur_node[item].nil?
+        count+=1
+        cur_node=cur_node[item]
       end
     end
+
+    raise InvalidCommand.new(str) if cur_node.nil? || !cur_node[:node]
+
+    cmd=cur_node[:node]
+    params=str_array[count..str_array.length].join.strip
+
+    Cmd.new(cmd,params)
   end
 
+  def register(command_str, function)
+    cmd=Command.new(command_str,function)
+    insert(command_str.split2,cmd)
+  end
+
+  private
+
+  def setup_path(path)
+    if path.class==Array
+      path
+    elsif path.class==String
+      path.split2
+    else
+      raise "Path must be Array or string"
+    end
+  end
+end
+
+module ZabconCommand
+  def self.add_command (path, &block)
+    path=
+        if path.class==Array
+          path
+        elsif path.class==String
+          path.split2(:trim_empty=>true)
+        else
+          raise "Path must be Array or string"
+        end
+    cmd=Command.new(path)
+    cmd.instance_eval(&block)
+    raise "Help tag required for \"#{path.join(" ")}\", and must be of type symbol.  Use the symbol :none for no help" if cmd.help_tag.class!=Symbol
+    CommandList.instance.insert(path,cmd)
+  end
+end
 
 if __FILE__ == $0
-
-  require 'pp'
-  require 'argument_processor'
-
-  arg_processor=ArgumentProcessor.new()
-  commands=Parser.new(arg_processoor.method(:default))
-  commands.set_debug_level(6)
-
-
-  def test_parse(cmd)
-    puts "\ntesting \"#{cmd}\""
-    retval=commands.parse(cmd)
-    puts "result:"
-    return retval
-  end
-  commands.set_debug_level(0)
-  commands.insert "", "help", lambda { puts "This  is a generic help stub" }
-  puts
-  commands.insert "", "get", nil
-  puts
-  commands.insert "get", "host", :gethost, {"show"=>{:type=>nil,:optional=>true}}
-  commands.set_debug_level(0)
-  puts
-  commands.insert "get", "user", :getuser
-  puts
-  commands.insert "get user", "group", :getusergroup
-  puts
-
-  pp commands
-
-  commands.set_debug_level(0)
-
-  test_parse("get user")
-  test_parse("get user show=all arg1 arg2")
-  test_parse("get user show=\"id, one, two, three\" arg1 arg2")
-  test_parse("get user group show=all arg1")
-  test_parse("set value")
-  test_parse("help")[:proc].call
-
-
-  p commands.complete("hel")
-  p commands.complete("help")
-  p commands.complete("get user all")
 
 end

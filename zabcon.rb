@@ -24,7 +24,6 @@
 # $Revision$
 ##########################################
 
-
 #setup our search path or libraries
 ZABCON_PATH=File.expand_path(File.join(File.dirname(__FILE__), '.'))
 
@@ -38,6 +37,8 @@ rescue LoadError
   exit 1
 end
 
+require 'libs/utility_items'
+require 'libs/revision'
 require 'optparse'
 require 'ostruct'
 require 'strscan'
@@ -57,82 +58,6 @@ if RUBY_VERSION=="1.8.6"  #Ruby 1.8.6 lacks the each_char function in the string
     end
   end
 end
-
-String.class_eval do
-# String::split2(str, splitchar)
-# splitchar: pivot string or regex
-# include_split: Include the split char in the resultant array
-# This is a special split routine which will split str using splitchar as a split point.
-# If items are within quotes or brackets they will not be split even when splitchar is
-# found within those quotes or brackets.
-  def split2(splitchar='\s',include_split=false)
-    str=self
-    quote_chars=["\"", "'"]
-    left=["(", "{", "["]
-    right=[")", "}", "]"]
-    quote_regex=Regexp.escape(quote_chars.to_s)
-    left_regex=Regexp.escape(left.to_s)
-    right_regex=Regexp.escape(right.to_s)
-    splitchar_regex= Regexp.new(/#{splitchar}/)
-    stack=[]
-    splits=[]
-    result=[]
-    s=StringScanner.new(str)
-    #set up our regex for scanning.  We scan for brackets, quotes and escaped characters
-    char_class=Regexp.new("[\\\\#{quote_regex}#{left_regex}#{right_regex}#{splitchar}]")
-    while !s.eos?
-      s.scan_until(char_class)
-      break if !s.matched?  # break out if nothing matched
-      ch=str[s.pos-1].chr
-      case ch
-        when "\\"  #hande an escaped character by moving the pointer up one
-          s.getch
-        when /[#{quote_regex}]/  #handle a quoted section
-          raise "Unbalanced String: #{str}" if (!stack.index(ch).nil? && stack.index(ch)!=(stack.length-1))
-          if stack.index(ch)==nil
-            stack<<ch
-          else
-            stack.pop
-          end
-        when /[#{left_regex}]/  #open bracket found
-          stack<<left.index(ch)
-        when /[#{right_regex}]/  #close bracket found
-          raise "Unbalanced String: #{str}" if ch!=right[stack.last]
-          stack.pop
-        when /#{splitchar_regex}/  #pivot character found
-          splits<<s.pos-1 if stack.empty?
-      end
-    end
-
-    raise "Unbalanced String: #{str}" if !stack.empty?
-    splits<<str.length
-
-    pos=0
-    while !splits.empty?
-      split_pos=splits.first
-      splits.delete(splits.first)
-      result<<str[pos..split_pos-1] if split_pos>0
-      result<<str[split_pos].chr if !str[split_pos].nil? && include_split
-      pos=split_pos+1
-    end
-
-    result
-  end
-
-  def strip_comments
-    splits = self.split2('#',true)
-    if !(index=splits.index('#')).nil?
-      if index>0
-        splits=splits[0..index-1]
-      else
-        splits=[]
-      end
-    end
-    splits.join.strip
-  end
-
-end # end String.class_eval
-
 
 class ZabconApp
 
@@ -183,7 +108,7 @@ class ZabconApp
   end
 
   def setup_globals
-    env=EnvVars.instance  # we must instantiate a singleton before using it
+#    env=EnvVars.instance  # we must instantiate a singleton before using it
     vars=GlobalVars.instance
 
     env["debug"]=0
@@ -199,6 +124,7 @@ class ZabconApp
     env["config_file"]=:default
     env["load_config"]=true
     env["truncate_length"]=5000
+    env["custom_commands"]=nil
 
     #output related environment variables
     env["table_output"]=STDIN.tty?   # Is the output a well formatted table, or csv like?

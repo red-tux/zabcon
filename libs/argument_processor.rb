@@ -26,67 +26,14 @@ require 'libs/zdebug'
 require 'libs/exceptions'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
+require 'libs/command_tree'
 
-# ArgumentProcessor  This class contains the functions for processing the arguments passed to each command
-# The functions will return two hashes.
-# :api_params - parameters to pass to the API call
-# :show_params - parameters to pass to the print routines
-# The args parameter is a hash of the
+
 
 # All functions for argument processing are in alphabetical order except for default functions which are placed first
-class ArgumentProcessor
+module ArgumentProcessor
 
-  include ZDebug
-
-  attr_reader :help, :default, :default_get
-
-  def initialize
-    @help=self.method(:help_processor)
-    @default=self.method(:default_processor)
-    @default_get=self.method(:default_get_processor)
-  end
-
-
-  def strip_comments(str)
-    str.lstrip!
-    str.chomp!
-
-    tmp=""
-    escaped=false
-    quoted=false
-    endquote=''
-
-    str.each_char{|char|
-      if quoted
-        if char==endquote
-          quoted=false
-          tmp+=char
-        else
-          tmp+=char
-        end
-      elsif escaped
-        escaped=false
-        tmp+=char
-      elsif char=='\\'
-        escaped=true
-       tmp+=char
-      elsif char=='"' or char=="'"
-        quoted=true
-        case char
-          when "'"       # single quote
-            endquote="'"
-          when '"'       # double quote
-            endquote='"'
-        end
-        tmp+=char
-      elsif char=='#'
-        break
-      else
-        tmp+=char
-      end
-    }
-
-    tmp.chomp
+  class ParseError < Exception
   end
 
   # converts item to the appropriate data type if need be
@@ -100,7 +47,7 @@ class ArgumentProcessor
       return text
     elsif item =~ /^\[(.*?)\]$/
       array_s=Regexp.last_match(1)
-      p array=array_s.split2(',')
+      array=array_s.split2(:split_char=>',')
       results=array.collect do |i|
         i.lstrip!
         i.rstrip!
@@ -111,7 +58,7 @@ class ArgumentProcessor
       return true if item.downcase=="true"
       return false
     else
-      array=item.split2(',')
+      array=item.split2(:split_char=>',')
       if !array.nil? && array.length<=1
         return item
       else
@@ -130,16 +77,16 @@ class ArgumentProcessor
   #
   # TODO this could use some cleanup.
   def params_to_hash(line)
-    debug(5,line,"line")
+#    debug(5,line,"line")
     params=line.split2
-    debug(5,params,"After split")
+#    debug(5,params,"After split")
 
     retval = {}
     params.each do |item|
-      debug(9,item,"parsing")
-      item.lstrip!
-      item.chomp!
+#      debug(9,item,"parsing")
+      item.strip!
       if item =~ /^(.*?)=(.*?)$/ then
+        Regexp.last_match
         lside=Regexp.last_match(1)
         rside=convert_or_parse(Regexp.last_match(2))
         if rside.class==Array  #check to see if we have hashes inside the array
@@ -168,13 +115,17 @@ class ArgumentProcessor
         retval.merge!(lside=>rside)
       else
          if item =~ /^"(.*?)"$/
-           item=Regexp.last_match(1)
+            item=Regexp.last_match(1)
          end
-        retval.merge!(item=>true)
+            retval.merge!(item=>true)
       end
-      debug(9,retval,"parsed")
+#      debug(9,retval,"parsed")
     end
     retval
+  end
+
+  def params_to_hash2(line)
+
   end
 
     #substitute_vars
@@ -231,33 +182,6 @@ class ArgumentProcessor
     return args
   end
 
-  def call_help(help_func)
-    help_func.call if !help_func.nil?
-  end
-
-  # The help processor just passes the args back in the api_params key
-  # Note, this is the only processor which does not process for variables.
-  def help_processor(help_func,valid_args,args,user_vars,*options)
-    args=substitute_vars(args)
-    {:api_params=>args, :show_params=>{}}
-  end
-
-  alias raw_processor help_processor
-
-  # The default helper process the "show=*" argument
-  # If there is a show argument "extendoutput" is sent to the API and the show argument is passed to the print routines
-  def default_helper(args)
-    debug(7,args,"default helper")
-     api_params = args
-    show_params = {}
-    if args.class!=Array && !args["show"].nil?
-       show_params={:show=>args["show"]}
-       api_params.delete("show")
-       api_params.merge({"extendoutput"=>true})
-    end
-
-    {:api_params=>api_params, :show_params=>show_params}
-  end
 
   # This is the default Parameter processor.  This is passed to the Command Tree object when it is instantiated
   # The default processor also checks the incoming parameters against a list of valid arguments, and merges
@@ -266,446 +190,446 @@ class ArgumentProcessor
   # If :use_array_processor is passed as an option the array processor will be used
   # In :num_args is passed with a value, and error will be returned if more than that many args are passed
 
-  def default_processor(help_func,valid_args,args,user_vars,*options)
-    debug(5,args,"default_processor args")
-    debug(5,options,"default_processor options")
+  def default_processor(args,valid_args,*flags)
+    args=args.strip  #remove preceding and trailing whitespace
+    flags=flags[0]
 
-    #if the intersection of options and [:array] is not empty then we will return an array
-    return_array = !(options[0] & [:use_array_processor]).empty?
-    check_not_empty = !(options[0] & [:not_empty]).empty?
+#    debug(5,args,"default_processor args")
+#    debug(5,flags,"default_processor flags")
 
-    num_args=options[0].map { |i|
-      i[:num_args] if i.class==Hash
-    }.compact[0]   # will be nil if :num_args not found
-
-    if check_not_empty
-      raise ParameterError.new("No arguments",:retry=>true, :help_func=>help_func) if args==""
+    if flags[:not_empty]
+      raise ParameterError.new("No arguments",:retry=>true) if args.empty?
     end
 
-    if return_array
+    if flags[:array_params]
       args=args.split2
+    elsif flags[:string_params]
+      args=args
     else
-      args=substitute_vars(args)
       args=params_to_hash(args)
-      if !(invalid=check_parameters(args, valid_args)).empty?
-        msg="Invalid parameters:\n"
-        msg+=invalid.join(", ")
-        raise ParameterError_Invalid.new(msg,:retry=>true, :help_func=>help_func)
-      end
 
-      valid_user_vars = {}
 
-      if !valid_args.nil?
-        valid_args.each {|item|
-          valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
-        }
-      end
-      args = valid_user_vars.merge(args)
+#      if !(invalid=check_parameters(args, valid_args)).empty?
+#        msg="Invalid parameters:\n"
+#        msg+=invalid.join(", ")
+#        raise ParameterError_Invalid.new(msg,:retry=>true, :help_func=>help_func)
+#      end
+#      args=substitute_vars(args)
+
+
+#      valid_user_vars = {}
+#
+#      if !valid_args.nil?
+#        valid_args.each {|item|
+#          valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
+#        }
+#      end
+#      args = valid_user_vars.merge(args)
     end
 
-    if !num_args.nil?
-      eval_exp="#{args.length}#{num_args}"
-      raise ParameterError.new("Too many arguments (#{args.length})",:retry=>true, :help_func=>help_func) if !eval(eval_exp)
-    end
-
-    default_helper(args)
-  end
-
-  # This processor does not do anything fancy.  All items passed in via args are passed back in api_params
-  def simple_processor(help_func,valid_args,args,user_vars,*options)
-    debug(7,args,"default argument processor")
-
-    args=substitute_vars(args)
-    args=params_to_hash(args)
-
-    {:api_params=>args, :show_params=>{}}
-  end
-
-  # This is the default processor for get commands.  It adds "limit" and "extendoutput" as needed
-  def default_get_processor(help_func, valid_args, args, user_vars, *options)
-    debug(7,args,"default get helper")
-
-    # let the default processor set things up
-    retval=default_processor(help_func,valid_args,args,user_vars,options)
-
-    if retval[:api_params]["limit"].nil?
-      retval[:api_params]["limit"]=100
-    end
-    if retval[:api_params]["show"].nil?
-      retval[:api_params]["extendoutput"]=true
-    end
-
-      retval
-  end
-
-  #Helper function to ensure the proper hash is returned
-  def return_helper(parameters,show_parameters=nil)
-    {:api_params=>parameters, :show_params=>show_parameters}
-  end
-
-  # Helper function the check for required parameters.
-  # Parameters is the hash of parameters from the user
-  # required_parameters is an array of parameters which are required
-  # returns an array of missing required items
-  # if the returned array is empty all required items found
-  def check_required(parameters,required_parameters)
-    r_params=required_parameters.clone    # Arrays are pass by reference
-    parameters.keys.each{|key| r_params.delete(key)}
-    r_params
-  end
-
-  # Helper function to check the validity of the parameters from the user
-  # Parameters is the hash of parameters from the user
-  # valid_parameters is an array of parameters which are valid
-  # returns an array of invalid parameters
-  # if the returned array is empty all parameters are valid
-  def check_parameters(parameters,valid_parameters)
-    if !valid_parameters.nil?
-      keys=parameters.keys
-      valid_parameters.each {|key| keys.delete(key)}
-      return keys
-    else
-      return []
-    end
-  end
-
-  # hash_processor is a helper function which takes the incoming arguments
-  # and chunks them into a hash of pairs
-  # example:
-  # input:  one two three four
-  # result:  "one"=>"two", "three"=>"four"
-  # Exception will be raised when error found
-  # processor does not do variable substitution
-  # TODO: Consider removing function as it appears not be used
-  def hash_processor(help_func,valid_args,args,user_vars,*options)
-    debug(6,args,"Args")
-    debug(6,options,"Options")
-    items=args.split2
-    if items.count % 2 == 0
-      rethash={}
-      while items.count!=0
-        rethash[items[0]]=items[1]
-        items.delete_at(0)
-        items.delete_at(0)   #make sure we delete the first two items
-      end
-      return_helper(rethash)
-    else
-      msg="Invalid input\n"
-      msg+="Odd number of arguments found"
-      raise ParameterError.new(msg,:retry=>true)
-    end
-  end
-
-  ##############################################################################################
-  # End of default and helper functions
-  ##############################################################################################
-
-  def add_user(help_func,valid_args,args, user_vars, *options)
-    debug(4,args,"args")
-
-    if args.empty?
-      call_help(help_func)
-      raise ParameterError.new("No arguments",:retry=>true, :help_func=>help_func)
-    end
-
-    valid_parameters=['name', 'surname', 'alias', 'passwd', 'url', 'autologin',
-                      'autologout', 'lang', 'theme', 'refresh', 'rows_per_page', 'type']
-    default_processor(help_func,valid_parameters,args,user_vars,options)
-  end
-
-  def add_host(help_func,valid_args,args,user_vars,*options)
-    debug(4,args,"args")
-    debug(4,options,"options")
-
-    if args.empty?
-      call_help(help_func)
-      return nil
-    end
-
-    #TODO, add the ability for both groups and groupids
-
-    valid_parameters=['host', 'groups', 'port', 'status', 'useip', 'dns', 'ip',
-                       'proxy_hostid', 'useipmi', 'ipmi_ip', 'ipmi_port', 'ipmi_authtype',
-                       'ipmi_privilege', 'ipmi_username', 'ipmi_password', 'templates']
-
-    parameters=default_processor(help_func,valid_parameters,args,user_vars,options)[:api_params]
-
-    required_parameters=[ 'host', 'groups' ]
-
-#    p required_parameters
-#    p parameters
-
-#    if !parameters["dns"].nil? and !required_parameters.find("ip")
-#      required_parameters.delete("ip")
-#    elsif !parameters["ip"].nil? and !required_parameters["dns"]
-#      required_parameters.delete("dns")
+#    if !num_args.nil?
+#      eval_exp="#{args.length}#{num_args}"
+#      raise ParameterError.new("Too many arguments (#{args.length})",:retry=>true, :help_func=>help_func) if !eval(eval_exp)
 #    end
 
-    if !(missing=check_required(parameters,required_parameters)).empty?
-#      if !required_parameters["ip"].nil? and !required_parameters["dns"].nil?
-#        puts "Missing parameter dns and/or ip"
-#        required_parameters["ip"].delete
-#        required_parameters["dns"].delete
-#      end
-      msg = "Required parameters missing\n"
-      msg += missing.join(", ")
-
-      raise ParameterError_Missing.new(msg,:retry=>true, :help_func=>help_func)
-    end
-
-    groups=convert_or_parse(parameters['groupids'])
-    if groups.class==Fixnum
-      parameters['groups']=[{"groupid"=>groups}]
-    end
-
-    return_helper(parameters)
+    Command::Arguments.new(args, flags)
   end
 
-  def add_item_active(help_func,parameters,*options)
-    valid_parameters = ['hostid','description','key','delta','history','multiplier','value_type', 'data_type',
-                         'units','delay','trends','status','valuemapid','applications']
-    required_parameters = ['hostid','description','key']
-  end
-
-  def add_item(help_func,valid_args,args,user_vars,*options)
-    debug(4,args,"args")
-    debug(4,options,"options")
-    debug(4,user_vars,"User Variables")
-
-    if args.empty?
-      call_help(help_func)
-      return nil
-    end
-
-    #  Item types
-    #  0 Zabbix agent             - Passive
-    #  1 SNMPv1 agent             - SNMP
-    #  2 Zabbix trapper           - Trapper
-    #  3 Simple check             - Simple
-    #  4 SNMPv2 agent             - SNMP2
-    #  5 Zabbix internal          - Internal
-    #  6 SNMPv3 agent             - SNMP3
-    #  7 Zabbix agent (active)    - Active
-    #  8 Zabbix aggregate         - Aggregate
-    # 10 External check           - External
-    # 11 Database monitor         - Database
-    # 12 IPMI agent               - IPMI
-    # 13 SSH agent                - SSH
-    # 14 TELNET agent             - Telnet
-    # 15 Calculated               - Calculated
-
-    #value types
-    # 0 Numeric (float)
-    # 1 Character
-    # 2 Log
-    # 3 Numeric (unsigned)
-    # 4 Text
-
-    # Data Types
-    # 0 Decimal
-    # 1 Octal
-    # 2 Hexadecimal
-
-    # Status Types
-    # 0 Active
-    # 1 Disabled
-    # 2 Not Supported
-
-    # Delta Types
-    # 0 As is
-    # 1 Delta (Speed per second)
-    # 2 Delta (simple change)
-
-
-    valid_parameters= ['hostid', 'snmpv3_securitylevel','snmp_community', 'publickey', 'delta', 'history', 'key_',
-                        'key', 'snmp_oid', 'delay_flex', 'multiplier', 'delay', 'mtime', 'username', 'authtype',
-                        'data_type', 'ipmi_sensor','snmpv3_authpassphrase', 'prevorgvalue', 'units', 'trends',
-                        'snmp_port', 'formula', 'type', 'params', 'logtimefmt', 'snmpv3_securityname',
-                        'trapper_hosts', 'description', 'password', 'snmpv3_privpassphrase',
-                        'status', 'privatekey', 'valuemapid', 'templateid', 'value_type', 'groups']
-
-    parameters=default_processor(help_func,valid_parameters,args,user_vars,options)[:api_params]
-
-#    valid_user_vars = {}
+#  # This processor does not do anything fancy.  All items passed in via args are passed back in api_params
+#  def simple_processor(help_func,valid_args,args,user_vars,*options)
+#    debug(7,args,"default argument processor")
 #
-#    valid_parameters.each {|item|
-#      valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
-#    }
-#    p parameters
-#    p valid_user_vars
-#    parameters = valid_user_vars.merge(parameters)
-#    p parameters
-    
-    required_parameters=[ 'type' ]
-
-    if parameters["type"].nil?
-      puts "Missing required parameter 'type'"
-      return nil
-    end
-
-    if !(invalid=check_parameters(parameters,valid_parameters)).empty?
-      puts "Invalid items"
-      puts invalid.join(", ")
-      return nil
-    end
-
-    case parameters["type"].downcase
-      when "passive"
-        parameters["type"]=0
-        required_parameters = ['hostid','description','key']
-      when "active"
-        parameters["type"]=7
-        required_parameters = ['hostid','description','key']
-      when "trapper"
-        parameters["type"]=2
-        required_parameters = ['hostid','description','key']
-    end
-
-    if !(missing=check_required(parameters,required_parameters)).empty?
-      puts "Required parameters missing"
-
-      puts missing.join(", ")
-
-      return nil
-    end
-
-    # perform some translations
-
-    parameters["key_"]=parameters["key"]
-    parameters.delete("key")
-
-    return_helper(parameters)
- end
-
-
-  def delete_host(help_func,valid_args,args,user_vars,*options)
-    debug(6,args,"args")
-
-    args=default_processor(help_func,valid_args,args,user_vars,options)[:api_params]
-
-    if args["id"].nil?
-      puts "Missing parameter \"id\""
-      call_help(help_func)
-      return nil
-    end
-
-    return_helper(args["id"])
-  end
-
-  def delete_user(help_func,valid_args,args,user_vars,*options)
-    debug(6,args,"args")
-    if (args.split(" ").length>1) or (args.length==0)
-      raise ParameterError("Incorrect number of parameters",:retry=>true, :help_func=>help_func)
-    end
-
-    args=default_processor(help_func,valid_args,args,user_vars)[:api_params]
-
-    if !args["id"].nil?
-      return return_helper(args) if args["id"].class==Fixnum
-      puts "\"id\" must be a number"
-      call_help(help_func)
-      return nil
-    end
-
-    puts "Invalid arguments"
-    call_help(help_func)
-    return nil
-
-  end
-
-  #TODO: Document why this function does not use the default processor
-  def get_group_id(help_func,valid_args,args,user_vars,*options)
-    debug(4,valid_args,"valid_args")
-    debug(4,args,"args")
-
-    args=substitute_vars(args)
-    args=params_to_hash(args)
-
-    {:api_params=>args.keys, :show_params=>nil}
-  end
-
-  def get_user(help_func,valid_args,args,user_vars,*options)
-    debug(4,valid_args,"valid_args")
-    debug(4,args, "args")
-
-    retval=default_get_processor(help_func,valid_args,args,user_vars)
-    error=false
-    msg=''
-
-    if !retval[:show_params][:show].nil?
-      show_options=retval[:show_params][:show]
-      if !show_options.include?("all")
-        valid_show_options=['name','attempt_clock','theme','autologout','autologin','url','rows_per_page','attempt_ip',
-                            'refresh','attempt_failed','type','userid','lang','alias','surname','passwd']
-
-        invalid_show_options=show_options-valid_show_options
-
-        if invalid_show_options.length!=0
-          error=true
-          msg = "Invalid show options: #{invalid_show_options}"
-        end
-      elsif show_options.length!=1
-        error=true
-        msg = "Show header option \"all\" cannot be included with other headers"
-      end
-    end
-#    raise ParameterError(msg,help_func) if error
-
-    return retval
-  end
-
-  #TODO: Use helper functions to make login more robust
-  def login(help_func,valid_args,args,user_vars,*options)
-    debug(4,args, "args")
-    args=args.split
-    if args.length!=3
-      call_help(help_func)
-      return nil
-    end
-    params={}
-    params[:server]=args[0]
-    params[:username]=args[1]
-    params[:password]=args[2]
-    return {:api_params=>params}
-  end
-
-  def raw_api(help_func,valid_args,args,user_vars,*options)
-    debug(7,args,"raw_api argument processor")
-
-    args=substitute_vars(args)
-
-    items=args.split2
-    method=items[0]
-    items.delete_at(0)
-    args=items.join(" ")
-    args=params_to_hash(args)
-    args=nil if args=={}
-
-    {:api_params=>{:method=>method, :params=>args}, :show_params=>{}}
-  end
+#    args=substitute_vars(args)
+#    args=params_to_hash(args)
+#
+#    {:api_params=>args, :show_params=>{}}
+#  end
+#
+#  # This is the default processor for get commands.  It adds "limit" and "extendoutput" as needed
+#  def default_get_processor(help_func, valid_args, args, user_vars, *options)
+#    debug(7,args,"default get helper")
+#
+#    # let the default processor set things up
+#    retval=default_processor(help_func,valid_args,args,user_vars,options)
+#
+#    if retval[:api_params]["limit"].nil?
+#      retval[:api_params]["limit"]=100
+#    end
+#    if retval[:api_params]["show"].nil?
+#      retval[:api_params]["extendoutput"]=true
+#    end
+#
+#      retval
+#  end
+#
+#  #Helper function to ensure the proper hash is returned
+#  def return_helper(parameters,show_parameters=nil)
+#    {:api_params=>parameters, :show_params=>show_parameters}
+#  end
+#
+#  # Helper function the check for required parameters.
+#  # Parameters is the hash of parameters from the user
+#  # required_parameters is an array of parameters which are required
+#  # returns an array of missing required items
+#  # if the returned array is empty all required items found
+#  def check_required(parameters,required_parameters)
+#    r_params=required_parameters.clone    # Arrays are pass by reference
+#    parameters.keys.each{|key| r_params.delete(key)}
+#    r_params
+#  end
+#
+#  # Helper function to check the validity of the parameters from the user
+#  # Parameters is the hash of parameters from the user
+#  # valid_parameters is an array of parameters which are valid
+#  # returns an array of invalid parameters
+#  # if the returned array is empty all parameters are valid
+#  def check_parameters(parameters,valid_parameters)
+#    if !valid_parameters.nil?
+#      keys=parameters.keys
+#      valid_parameters.each {|key| keys.delete(key)}
+#      return keys
+#    else
+#      return []
+#    end
+#  end
+#
+#  # hash_processor is a helper function which takes the incoming arguments
+#  # and chunks them into a hash of pairs
+#  # example:
+#  # input:  one two three four
+#  # result:  "one"=>"two", "three"=>"four"
+#  # Exception will be raised when error found
+#  # processor does not do variable substitution
+#  # TODO: Consider removing function as it appears not be used
+#  def hash_processor(help_func,valid_args,args,user_vars,*options)
+#    debug(6,args,"Args")
+#    debug(6,options,"Options")
+#    items=args.split2
+#    if items.count % 2 == 0
+#      rethash={}
+#      while items.count!=0
+#        rethash[items[0]]=items[1]
+#        items.delete_at(0)
+#        items.delete_at(0)   #make sure we delete the first two items
+#      end
+#      return_helper(rethash)
+#    else
+#      msg="Invalid input\n"
+#      msg+="Odd number of arguments found"
+#      raise ParameterError.new(msg,:retry=>true)
+#    end
+#  end
+#
+#  ##############################################################################################
+#  # End of default and helper functions
+#  ##############################################################################################
+#
+#  def add_user(help_func,valid_args,args, user_vars, *options)
+#    debug(4,args,"args")
+#
+#    if args.empty?
+#      call_help(help_func)
+#      raise ParameterError.new("No arguments",:retry=>true, :help_func=>help_func)
+#    end
+#
+#    valid_parameters=['name', 'surname', 'alias', 'passwd', 'url', 'autologin',
+#                      'autologout', 'lang', 'theme', 'refresh', 'rows_per_page', 'type']
+#    default_processor(help_func,valid_parameters,args,user_vars,options)
+#  end
+#
+#  def add_host(help_func,valid_args,args,user_vars,*options)
+#    debug(4,args,"args")
+#    debug(4,options,"options")
+#
+#    if args.empty?
+#      call_help(help_func)
+#      return nil
+#    end
+#
+#    #TODO, add the ability for both groups and groupids
+#
+#    valid_parameters=['host', 'groups', 'port', 'status', 'useip', 'dns', 'ip',
+#                       'proxy_hostid', 'useipmi', 'ipmi_ip', 'ipmi_port', 'ipmi_authtype',
+#                       'ipmi_privilege', 'ipmi_username', 'ipmi_password', 'templates']
+#
+#    parameters=default_processor(help_func,valid_parameters,args,user_vars,options)[:api_params]
+#
+#    required_parameters=[ 'host', 'groups' ]
+#
+##    p required_parameters
+##    p parameters
+#
+##    if !parameters["dns"].nil? and !required_parameters.find("ip")
+##      required_parameters.delete("ip")
+##    elsif !parameters["ip"].nil? and !required_parameters["dns"]
+##      required_parameters.delete("dns")
+##    end
+#
+#    if !(missing=check_required(parameters,required_parameters)).empty?
+##      if !required_parameters["ip"].nil? and !required_parameters["dns"].nil?
+##        puts "Missing parameter dns and/or ip"
+##        required_parameters["ip"].delete
+##        required_parameters["dns"].delete
+##      end
+#      msg = "Required parameters missing\n"
+#      msg += missing.join(", ")
+#
+#      raise ParameterError_Missing.new(msg,:retry=>true, :help_func=>help_func)
+#    end
+#
+#    groups=convert_or_parse(parameters['groupids'])
+#    if groups.class==Fixnum
+#      parameters['groups']=[{"groupid"=>groups}]
+#    end
+#
+#    return_helper(parameters)
+#  end
+#
+#  def add_item_active(help_func,parameters,*options)
+#    valid_parameters = ['hostid','description','key','delta','history','multiplier','value_type', 'data_type',
+#                         'units','delay','trends','status','valuemapid','applications']
+#    required_parameters = ['hostid','description','key']
+#  end
+#
+#  def add_item(help_func,valid_args,args,user_vars,*options)
+#    debug(4,args,"args")
+#    debug(4,options,"options")
+#    debug(4,user_vars,"User Variables")
+#
+#    if args.empty?
+#      call_help(help_func)
+#      return nil
+#    end
+#
+#    #  Item types
+#    #  0 Zabbix agent             - Passive
+#    #  1 SNMPv1 agent             - SNMP
+#    #  2 Zabbix trapper           - Trapper
+#    #  3 Simple check             - Simple
+#    #  4 SNMPv2 agent             - SNMP2
+#    #  5 Zabbix internal          - Internal
+#    #  6 SNMPv3 agent             - SNMP3
+#    #  7 Zabbix agent (active)    - Active
+#    #  8 Zabbix aggregate         - Aggregate
+#    # 10 External check           - External
+#    # 11 Database monitor         - Database
+#    # 12 IPMI agent               - IPMI
+#    # 13 SSH agent                - SSH
+#    # 14 TELNET agent             - Telnet
+#    # 15 Calculated               - Calculated
+#
+#    #value types
+#    # 0 Numeric (float)
+#    # 1 Character
+#    # 2 Log
+#    # 3 Numeric (unsigned)
+#    # 4 Text
+#
+#    # Data Types
+#    # 0 Decimal
+#    # 1 Octal
+#    # 2 Hexadecimal
+#
+#    # Status Types
+#    # 0 Active
+#    # 1 Disabled
+#    # 2 Not Supported
+#
+#    # Delta Types
+#    # 0 As is
+#    # 1 Delta (Speed per second)
+#    # 2 Delta (simple change)
+#
+#
+#    valid_parameters= ['hostid', 'snmpv3_securitylevel','snmp_community', 'publickey', 'delta', 'history', 'key_',
+#                        'key', 'snmp_oid', 'delay_flex', 'multiplier', 'delay', 'mtime', 'username', 'authtype',
+#                        'data_type', 'ipmi_sensor','snmpv3_authpassphrase', 'prevorgvalue', 'units', 'trends',
+#                        'snmp_port', 'formula', 'type', 'params', 'logtimefmt', 'snmpv3_securityname',
+#                        'trapper_hosts', 'description', 'password', 'snmpv3_privpassphrase',
+#                        'status', 'privatekey', 'valuemapid', 'templateid', 'value_type', 'groups']
+#
+#    parameters=default_processor(help_func,valid_parameters,args,user_vars,options)[:api_params]
+#
+##    valid_user_vars = {}
+##
+##    valid_parameters.each {|item|
+##      valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
+##    }
+##    p parameters
+##    p valid_user_vars
+##    parameters = valid_user_vars.merge(parameters)
+##    p parameters
+#
+#    required_parameters=[ 'type' ]
+#
+#    if parameters["type"].nil?
+#      puts "Missing required parameter 'type'"
+#      return nil
+#    end
+#
+#    if !(invalid=check_parameters(parameters,valid_parameters)).empty?
+#      puts "Invalid items"
+#      puts invalid.join(", ")
+#      return nil
+#    end
+#
+#    case parameters["type"].downcase
+#      when "passive"
+#        parameters["type"]=0
+#        required_parameters = ['hostid','description','key']
+#      when "active"
+#        parameters["type"]=7
+#        required_parameters = ['hostid','description','key']
+#      when "trapper"
+#        parameters["type"]=2
+#        required_parameters = ['hostid','description','key']
+#    end
+#
+#    if !(missing=check_required(parameters,required_parameters)).empty?
+#      puts "Required parameters missing"
+#
+#      puts missing.join(", ")
+#
+#      return nil
+#    end
+#
+#    # perform some translations
+#
+#    parameters["key_"]=parameters["key"]
+#    parameters.delete("key")
+#
+#    return_helper(parameters)
+# end
+#
+#
+#  def delete_host(help_func,valid_args,args,user_vars,*options)
+#    debug(6,args,"args")
+#
+#    args=default_processor(help_func,valid_args,args,user_vars,options)[:api_params]
+#
+#    if args["id"].nil?
+#      puts "Missing parameter \"id\""
+#      call_help(help_func)
+#      return nil
+#    end
+#
+#    return_helper(args["id"])
+#  end
+#
+#  def delete_user(help_func,valid_args,args,user_vars,*options)
+#    debug(6,args,"args")
+#    if (args.split(" ").length>1) or (args.length==0)
+#      raise ParameterError("Incorrect number of parameters",:retry=>true, :help_func=>help_func)
+#    end
+#
+#    args=default_processor(help_func,valid_args,args,user_vars)[:api_params]
+#
+#    if !args["id"].nil?
+#      return return_helper(args) if args["id"].class==Fixnum
+#      puts "\"id\" must be a number"
+#      call_help(help_func)
+#      return nil
+#    end
+#
+#    puts "Invalid arguments"
+#    call_help(help_func)
+#    return nil
+#
+#  end
+#
+#  #TODO: Document why this function does not use the default processor
+#  def get_group_id(help_func,valid_args,args,user_vars,*options)
+#    debug(4,valid_args,"valid_args")
+#    debug(4,args,"args")
+#
+#    args=substitute_vars(args)
+#    args=params_to_hash(args)
+#
+#    {:api_params=>args.keys, :show_params=>nil}
+#  end
+#
+#  def get_user(help_func,valid_args,args,user_vars,*options)
+#    debug(4,valid_args,"valid_args")
+#    debug(4,args, "args")
+#
+#    retval=default_get_processor(help_func,valid_args,args,user_vars)
+#    error=false
+#    msg=''
+#
+#    if !retval[:show_params][:show].nil?
+#      show_options=retval[:show_params][:show]
+#      if !show_options.include?("all")
+#        valid_show_options=['name','attempt_clock','theme','autologout','autologin','url','rows_per_page','attempt_ip',
+#                            'refresh','attempt_failed','type','userid','lang','alias','surname','passwd']
+#
+#        invalid_show_options=show_options-valid_show_options
+#
+#        if invalid_show_options.length!=0
+#          error=true
+#          msg = "Invalid show options: #{invalid_show_options}"
+#        end
+#      elsif show_options.length!=1
+#        error=true
+#        msg = "Show header option \"all\" cannot be included with other headers"
+#      end
+#    end
+##    raise ParameterError(msg,help_func) if error
+#
+#    return retval
+#  end
+#
+#  #TODO: Use helper functions to make login more robust
+#  def login(help_func,valid_args,args,user_vars,*options)
+#    debug(4,args, "args")
+#    args=args.split
+#    if args.length!=3
+#      call_help(help_func)
+#      return nil
+#    end
+#    params={}
+#    params[:server]=args[0]
+#    params[:username]=args[1]
+#    params[:password]=args[2]
+#    return {:api_params=>params}
+#  end
+#
+#  def raw_api(help_func,valid_args,args,user_vars,*options)
+#    debug(7,args,"raw_api argument processor")
+#
+#    args=substitute_vars(args)
+#
+#    items=args.split2
+#    method=items[0]
+#    items.delete_at(0)
+#    args=items.join(" ")
+#    args=params_to_hash(args)
+#    args=nil if args=={}
+#
+#    {:api_params=>{:method=>method, :params=>args}, :show_params=>{}}
+#  end
 
 end
 
 
 if __FILE__ == $0
-
-  #If we don't have the each_char method for the string class include the module that has it.
-  if !String.method_defined?("each_char")
-    require 'jcode'
-  end
-
-  require 'pp'
-
-  include ZDebug
-  set_debug_level(1)
-  arg_processor=ArgumentProcessor.new
-
-  p arg='i1=2 i2=item i3="this is a short sentence" i4="a string with a \" char"'
-  pp arg_processor.params_to_hash(arg),"----"
-
-  p arg='one=-2 two="" three=1,2 four=[1,2,three]'
-  pp arg_processor.params_to_hash(arg),"----"
-
-  p arg='hosts=[{hostid=10017}] name="zzz"'
-  pp arg_processor.params_to_hash(arg)
+#
+#  #If we don't have the each_char method for the string class include the module that has it.
+#  if !String.method_defined?("each_char")
+#    require 'jcode'
+#  end
+#
+#  require 'pp'
+#
+#  include ZDebug
+#  set_debug_level(1)
+#  arg_processor=ArgumentProcessor.new
+#
+#  p arg='i1=2 i2=item i3="this is a short sentence" i4="a string with a \" char"'
+#  pp arg_processor.params_to_hash(arg),"----"
+#
+#  p arg='one=-2 two="" three=1,2 four=[1,2,three]'
+#  pp arg_processor.params_to_hash(arg),"----"
+#
+#  p arg='hosts=[{hostid=10017}] name="zzz"'
+#  pp arg_processor.params_to_hash(arg)
 end

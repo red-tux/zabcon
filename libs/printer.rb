@@ -19,8 +19,8 @@
 
 ##########################################
 # Subversion information
-# $Id: printer.rb 269 2011-01-02 19:14:58Z richlv $
-# $Revision: 269 $
+# $Id$
+# $Revision$
 ##########################################
 
 require 'libs/zdebug'
