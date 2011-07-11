@@ -145,11 +145,11 @@ class ZabbixServer
 #    {:class=>:host, :result=>result}
 #  end
 
-  def addhost(parameters)
-    debug(6,parameters)
-    result=@connection.host.create(parameters)
-    {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
-  end
+#  def addhost(parameters)
+#    debug(6,parameters)
+#    result=@connection.host.create(parameters)
+#    {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
+#  end
 
   def deletehost(parameters)
     debug(6,parameters)
@@ -157,54 +157,54 @@ class ZabbixServer
     {:class=>:host, :message=>"The following host(s) was/were deleted: #{result['hostids']}", :result=>result}
   end
 
-  def getitem(parameters)
-    debug(6,parameters)
+#  def getitem(parameters)
+#    debug(6,parameters)
+#
+#    result=@connection.item.get(parameters)
+#    {:class=>:item, :result=>result}
+#  end
 
-    result=@connection.item.get(parameters)
-    {:class=>:item, :result=>result}
-  end
-
-  def additem(parameters)
-    debug(6,parameters)
-    {:class=>:item, :result=>@connection.item.create(parameters)}
-  end
+#  def additem(parameters)
+#    debug(6,parameters)
+#    {:class=>:item, :result=>@connection.item.create(parameters)}
+#  end
 
   def deleteitem(parameters)
     debug(6,parameters)
     {:class=>:item, :result=>@connection.item.delete(parameters)}
   end
 
-  def adduser(parameters)
-    debug(6,parameters)
-    begin
-      uid=@connection.user.create(parameters)
-      puts "Created userid: #{uid["userids"]}"
-    rescue ZbxAPI_ParameterError => e
-      puts "Add user failed, error: #{e.message}"
-    end
-  end
-
-  def deleteuser(parameter)
-    debug(6,parameter)
-    id=0  #id to delete
-#    if parameters.nil? then
-#      puts "User id required"
-#      return
+#  def adduser(parameters)
+#    debug(6,parameters)
+#    begin
+#      uid=@connection.user.create(parameters)
+#      puts "Created userid: #{uid["userids"]}"
+#    rescue ZbxAPI_ParameterError => e
+#      puts "Add user failed, error: #{e.message}"
 #    end
+#  end
 
-    if !parameter["name"].nil?
-      users=@connection.user.get({"pattern"=>parameter["name"], "extendoutput"=>true})
-      users.each { |user| id=user["userid"] if user["alias"]==parameter }
-    else
-      id=parameter["id"]
-    end
-    result=@connection.user.delete(id)
-    if !result.empty?
-      puts "Deleted user id #{result["userids"]}"
-    else
-      puts "Error deleting #{parameter.to_a[0][1]}"
-    end
-  end
+#  def deleteuser(parameter)
+#    debug(6,parameter)
+#    id=0  #id to delete
+##    if parameters.nil? then
+##      puts "User id required"
+##      return
+##    end
+#
+#    if !parameter["name"].nil?
+#      users=@connection.user.get({"pattern"=>parameter["name"], "extendoutput"=>true})
+#      users.each { |user| id=user["userid"] if user["alias"]==parameter }
+#    else
+#      id=parameter["id"]
+#    end
+#    result=@connection.user.delete(id)
+#    if !result.empty?
+#      puts "Deleted user id #{result["userids"]}"
+#    else
+#      puts "Error deleting #{parameter.to_a[0][1]}"
+#    end
+#  end
 
   def updateuser(parameters)
     debug(6,parameters)
@@ -267,12 +267,12 @@ class ZabbixServer
     {:class=>:hostgroup, :result=>result}
   end
 
-  def gethostgroup(parameters)
-    debug(6,parameters)
-
-    result=@connection.hostgroup.get(parameters)
-    {:class=>:hostgroup, :result=>result}
-  end
+#  def gethostgroup(parameters)
+#    debug(6,parameters)
+#
+#    result=@connection.hostgroup.get(parameters)
+#    {:class=>:hostgroup, :result=>result}
+#  end
 
   def gethostgroupid(parameters)
     debug(6,parameters)
@@ -280,18 +280,18 @@ class ZabbixServer
     {:class=>:hostgroupid, :result=>result}
   end
 
-  def getapp(parameters)
-    debug(6,parameters)
-
-    result=@connection.application.get(parameters)
-    {:class=>:application, :result=>result}
-  end
-
-  def addapp(parameters)
-    debug(6,parameters)
-    result=@connection.application.create(parameters)
-    {:class=>:application, :result=>result}
-  end
+#  def getapp(parameters)
+#    debug(6,parameters)
+#
+#    result=@connection.application.get(parameters)
+#    {:class=>:application, :result=>result}
+#  end
+#
+#  def addapp(parameters)
+#    debug(6,parameters)
+#    result=@connection.application.create(parameters)
+#    {:class=>:application, :result=>result}
+#  end
 
   def getappid(parameters)
     debug(6,parameters)
@@ -344,11 +344,11 @@ class ZabbixServer
     {:class=>:map, :result=>result}
   end
 
-  def raw_api(parameters)
-    debug(6,parameters)
-    result=@connection.raw_api(parameters[:method],parameters[:params])
-    {:class=>:raw, :result=>result}
-  end
+#  def raw_api(parameters)
+#    debug(6,parameters)
+#    result=@connection.raw_api(parameters[:method],parameters[:params])
+#    {:class=>:raw, :result=>result}
+#  end
 
   def raw_json(parameters)
     debug(6,parameters)

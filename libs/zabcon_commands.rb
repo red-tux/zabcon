@@ -161,60 +161,6 @@ ZabconCommand.add_command "show env" do
   set_flag :array_params
 end
 
-ZabconCommand.add_command "get host" do
-  set_method {|params|
-    server.connection.host.get(params)
-  }
-  default_show ["hostid", "host", "dns", "ip"]
-  set_flag :login_required
-  set_flag :print_output
-  set_help_tag :get_host
-end
-
-#      @commands.insert ["get","host","group"], @server.method(:gethostgroup), no_args, no_help, @arg_processor.default_get
-
-ZabconCommand.add_command "get host group" do
-  set_method { |params|
-    server.connection.hostgroup.get(params)
-  }
-  default_show ["groupid", "name"]
-  set_flag :print_output
-  set_help_tag :get_host_group
-end
-
-ZabconCommand.add_command "get item" do
-  set_method { |params|
-    server.connection.item.get(params)
-  }
-  set_valid_args ['itemids','hostids','groupids', 'triggerids','applicationids',
-                  'status','templated_items','editable','count','pattern','limit',
-                  'order', 'show']
-  default_show ["itemid", "key", "description"]
-  set_flag :login_required
-  set_flag :print_output
-  set_help_tag :get_item
-end
-
-ZabconCommand.add_command "get trigger" do
-  set_method { |params|
-    server.connection.trigger.get(params)
-  }
-  default_show ["triggerid","description", "status"]
-  set_flag :login_required
-  set_flag :print_output
-  set_help_tag :get_trigger
-end
-
-ZabconCommand.add_command "get user" do
-  set_method { |params|
-    server.connection.user.get(params)
-  }
-  default_show ["userid","name","surname","alias"]
-  set_flag :login_required
-  set_flag :print_output
-  set_help_tag :get_user
-end
-
 ZabconCommand.add_command "raw api" do
   set_method {|params|
     api_func=params[:method]
@@ -234,4 +180,146 @@ ZabconCommand.add_command "raw api" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
+end
+
+###############################################################################
+#Application                                                       Application#
+###############################################################################
+
+ZabconCommand.add_command "add app" do
+  set_method {|params|
+    server.connection.application.create(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :add_app
+end
+
+
+ZabconCommand.add_command "get app" do
+  set_method {|params|
+    server.connection.application.get(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_app
+end
+
+###############################################################################
+#Host                                                                     Host#
+###############################################################################
+
+ZabconCommand.add_command "add host" do
+  set_method {|params|
+#    {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
+    server.connection.host.create(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_host
+end
+
+ZabconCommand.add_command "get host" do
+  set_method {|params|
+    server.connection.host.get(params)
+  }
+  default_show ["hostid", "host", "dns", "ip"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_host
+end
+
+ZabconCommand.add_command "get host group" do
+  set_method { |params|
+    server.connection.hostgroup.get(params)
+  }
+  default_show ["groupid", "name"]
+  set_flag :print_output
+  set_help_tag :get_host_group
+end
+
+###############################################################################
+#Item                                                                     Item#
+###############################################################################
+
+
+ZabconCommand.add_command "add item" do
+  set_method { |params|
+    server.connection.item.create(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :add_item
+end
+
+
+ZabconCommand.add_command "get item" do
+  set_method { |params|
+    server.connection.item.get(params)
+  }
+  set_valid_args ['itemids','hostids','groupids', 'triggerids','applicationids',
+                  'status','templated_items','editable','count','pattern','limit',
+                  'order', 'show']
+  default_show ["itemid", "key", "description"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_item
+end
+
+###############################################################################
+#Trigger                                                               Trigger#
+###############################################################################
+
+ZabconCommand.add_command "get trigger" do
+  set_method { |params|
+    server.connection.trigger.get(params)
+  }
+  default_show ["triggerid","description", "status"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_trigger
+end
+
+###############################################################################
+#User                                                                     User#
+###############################################################################
+
+ZabconCommand.add_command "add user" do
+  set_method { |params|
+    uid=server.connection.user.create(params)
+    puts "Created userid: #{uid["userids"]}"
+  }
+  set_flag :login_required
+  set_help_tag :add_user
+end
+
+ZabconCommand.add_command "delete user" do
+  set_method { |params|
+    id=0
+    if !params["name"].nil?
+      users=server.connection.user.get({"pattern"=>params["name"], "extendoutput"=>true})
+      users.each { |user| id=user["userid"] if user["alias"]==parameter }
+    else
+      id=params["id"]
+    end
+    result=@connection.user.delete(id)
+
+    if !result.empty?
+      puts "Deleted user id #{result["userids"]}"
+    else
+      puts "Error deleting #{params.to_a[0][1]}"
+    end
+  }
+  set_flag :login_required
+  set_help_tag :delete_user
+end
+
+ZabconCommand.add_command "get user" do
+  set_method { |params|
+    server.connection.user.get(params)
+  }
+  default_show ["userid","name","surname","alias"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :get_user
 end

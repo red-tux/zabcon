@@ -156,26 +156,18 @@ class ZabconCore
 #    @commands.insert ["set","var"], self.method(:set_var), no_args, no_help, @arg_processor.method(:simple_processor),:suppress_printer
 #    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
 #
-#      debug(5,"Inserting commands which require login")
-#      # This command tree is for a valid login
-#      @commands.insert ["get"], no_cmd, no_args, @cmd_help.method(:get)
 #      #Import commented out until fixed
 #      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
 #
-#      @commands.insert ["add","app"], @server.method(:addapp),no_args,no_help,no_verify
 #      @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
-#      @commands.insert ["add","host"], @server.method(:addhost), no_args, @cmd_help.method(:add_host), @arg_processor.method(:add_host), :server => @server
 #      @commands.insert ["add","host","group"], @server.method(:addhostgroup),no_args,no_help,no_verify
-#      @commands.insert ["add","item"], @server.method(:additem), no_args, @cmd_help.method(:add_item), @arg_processor.method(:add_item)
 #      @commands.insert ["add","link"], @server.method(:addlink),no_args,no_help,no_verify
 #      @commands.insert ["add","link","trigger"], @server.method(:addlinktrigger),no_args,no_help,no_verify
 #      @commands.insert ["add","sysmap"], @server.method(:addsysmap),no_args,no_help,no_verify
 #      @commands.insert ["add","sysmap","element"], @server.method(:addelementtosysmap),no_args,no_help,no_verify
 #      @commands.insert ["add","trigger"], @server.method(:addtrigger),no_args,no_help,no_verify
-#      @commands.insert ["add","user"], @server.method(:adduser), no_args, @cmd_help.method(:add_user), @arg_processor.method(:add_user)
 #      @commands.insert ["add","user","media"], @server.method(:addusermedia),no_args,@cmd_help.method(:add_user_media),no_verify
 #
-#      @commands.insert ["get","app"], @server.method(:getapp), no_args, no_help, @arg_processor.default_get
 #      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
 #      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
 #      @commands.insert ["delete","user"], @server.method(:deleteuser), ['id'], @cmd_help.method(:delete_user), @arg_processor.method(:delete_user)
@@ -207,6 +199,9 @@ class ZabconCore
 
         end  # while
       end #end catch
+    rescue CommandList::InvalidCommand => e
+      puts e.message
+      retry
     rescue Command::ParameterError => e
       puts e.message
       retry
