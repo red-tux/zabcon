@@ -455,6 +455,7 @@ module ZabconCommand
     raise "Help tag required for \"#{path.join(" ")}\", and must be of type symbol.  Use the symbol :none for no help" if cmd.help_tag.class!=Symbol
     CommandList.instance.insert(path,cmd)
   end
+
 end
 
 if __FILE__ == $0

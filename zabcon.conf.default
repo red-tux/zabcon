@@ -36,3 +36,6 @@ password=zabbix
 
 # The default seperator character for csv output.
 #table_separator=","
+
+# File to store custom commands
+#custom_commands=sample_custom_commands
