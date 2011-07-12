@@ -230,6 +230,7 @@ class Command
     @valid_args=[]
     @aliases=[]
     @flags={}
+    @result_type=nil
 
     #TODO Can the argument processor stuff be cleaned up?
     @argument_processor=method(:default_processor)
@@ -315,13 +316,33 @@ class Command
     end
   end
 
+  def result_type(type)
+    @result_type=type
+  end
+
   def execute(parameters)
+    def set_result_message(msg)
+      @result.message=msg
+    end
+
+    def set_result_type(type)
+      @result.type=type
+    end
+
+    @response=Response.new
+    @response.type=@result_type if !@result_type.nil?
+
     puts @depreciated if !@depreciated.nil?
     if !@flags.nil? && @flags[:login_required] && !server.connected?
       raise LoginRequired.new("\"#{@command_name}\" requires an active login")
     end
 
-    @cmd_method.call(parameters)
+    @response.data=@cmd_method.call(parameters)
+
+    retval=@response.dup  #ensure @result is empty for our next use
+    @response=nil
+
+    retval
   end
 
   private
@@ -426,11 +447,6 @@ class CommandList
     params=str_array[count..str_array.length].join.strip
 
     Cmd.new(cmd,params)
-  end
-
-  def register(command_str, function)
-    cmd=Command.new(command_str,function)
-    insert(command_str.split2,cmd)
   end
 
   def get_command_list(tree=nil)

@@ -35,7 +35,7 @@ require 'libs/zdebug'
 require 'libs/input'
 #require 'libs/defines'
 require 'libs/command_tree'
-require 'libs/argument_processor'
+#require 'libs/argument_processor'
 require 'libs/command_help'
 require 'libs/zabcon_globals'
 require 'libs/zabcon_commands'
@@ -152,22 +152,14 @@ class ZabconCore
 #      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
 #
 #      @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
-#      @commands.insert ["add","host","group"], @server.method(:addhostgroup),no_args,no_help,no_verify
 #      @commands.insert ["add","link"], @server.method(:addlink),no_args,no_help,no_verify
 #      @commands.insert ["add","link","trigger"], @server.method(:addlinktrigger),no_args,no_help,no_verify
 #      @commands.insert ["add","sysmap"], @server.method(:addsysmap),no_args,no_help,no_verify
 #      @commands.insert ["add","sysmap","element"], @server.method(:addelementtosysmap),no_args,no_help,no_verify
-#      @commands.insert ["add","trigger"], @server.method(:addtrigger),no_args,no_help,no_verify
 #      @commands.insert ["add","user","media"], @server.method(:addusermedia),no_args,@cmd_help.method(:add_user_media),no_verify
 #
 #      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
 #      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
-#      @commands.insert ["delete","host"], @server.method(:deletehost), no_args, @cmd_help.method(:delete_host), @arg_processor.method(:delete_host)
-#      @commands.insert ["delete","item"], @server.method(:deleteitem), ['itemid'], @cmd_help.method(:delete_item), @arg_processor.default
-#
-#      @commands.insert ["raw","json"], @server.method(:raw_json), no_args, @cmd_help.method(:raw_json), @arg_processor.method(:raw_processor)
-#
-#  end
 
   def start
     debug(5,"Entering main zabcon start routine")
@@ -185,7 +177,7 @@ class ZabconCore
           commands=ZabconExecuteContainer.new(line)
 
           commands.execute
-          @printer.print({:result=>commands.results},commands.show_params) if commands.print?
+          @printer.print(commands.results,commands.show_params) if commands.print?
 
         end  # while
       end #end catch

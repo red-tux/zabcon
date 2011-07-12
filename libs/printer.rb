@@ -261,12 +261,12 @@ class OutputPrinter
     debug(6,dataset,"dataset",150)
     debug(6,cols,"cols",50)
     count=0
-    type=dataset[:class]
-    results=dataset[:result]
+    type=dataset.type
+    results=dataset.data
 
     debug(6,type,"Array type")
 
-    puts "#{dataset[:class].to_s.capitalize} result set"  if EnvVars.instance["echo"]
+    puts "#{dataset.type.to_s.capitalize} result set"  if EnvVars.instance["echo"]
 
     if results.length==0
       puts "Result set empty"
@@ -334,7 +334,7 @@ class OutputPrinter
 
   def print_hash(dataset,cols)
     puts "Hash object printing not implemented, here is the raw result"
-    p dataset
+    p dataset.result
   end
 
 
@@ -349,18 +349,18 @@ class OutputPrinter
         cols_to_show=cols.empty? ? nil : cols[:show]
       end
     
-      puts dataset[:message] if dataset[:message]
+      puts dataset.message if dataset.message
 
 #    p dataset[:result].class
-      if dataset[:result].class==Array then
+      if dataset.data.class==Array then
         print_array(dataset,cols_to_show)
-      elsif dataset[:result].class==Hash then
+      elsif dataset.result.class==Hash then
         print_hash(dataset,cols_to_show)
-      elsif dataset[:result].class!=NilClass then
+      elsif dataset.result.class!=NilClass then
         puts "Unknown object received by the print routine"
-        puts "Class type: #{dataset[:result].class}"
+        puts "Class type: #{dataset.result.class}"
         puts "Data:"
-        p dataset[:result]
+        p dataset.result
       end
     rescue TypeError
       puts "***********************************************************"

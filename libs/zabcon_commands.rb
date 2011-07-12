@@ -153,8 +153,6 @@ ZabconCommand.add_command "set pause" do
   set_help_tag :set_pause
 end
 
-
-
 ZabconCommand.add_command "show var" do
   set_method { |params|
     if params.empty?
@@ -203,27 +201,6 @@ ZabconCommand.add_command "show env" do
   set_flag :array_params
 end
 
-ZabconCommand.add_command "raw api" do
-  set_method {|params|
-    api_func=params[:method]
-    params=params[:params]
-
-    server.connection.raw_api(api_func, params)
-  }
-
-  arg_processor {|*params|
-    parameter_error "Command \"raw api\" requires parameters" if params.empty?
-    params=params[0].split2
-    api_func=params[0]
-    params.delete_at(0)
-    retval= params_to_hash(params.join(" "))
-    {:method=>api_func, :params=>retval}
-  }
-  set_flag :login_required
-  set_flag :print_output
-  set_help_tag :raw_api
-end
-
 ZabconCommand.add_command "set var" do
   set_method{|params|
     params.each {|key,val|
@@ -251,6 +228,52 @@ ZabconCommand.add_command "unset var" do
   }
   set_flag :array_params
   set_help_tag :unset_var
+end
+
+ZabconCommand.add_command "raw api" do
+  set_method {|params|
+    api_func=params[:method]
+    params=params[:params]
+
+    server.connection.raw_api(api_func, params)
+  }
+
+  arg_processor {|*params|
+    parameter_error "Command \"raw api\" requires parameters" if params.empty?
+    params=params[0].split2
+    api_func=params[0]
+    params.delete_at(0)
+    retval= params_to_hash(params.join(" "))
+    {:method=>api_func, :params=>retval}
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :raw_api
+  result_type :raw_api
+end
+
+ZabconCommand.add_command "raw json" do
+  set_method {|params|
+    begin
+      result=server.connection.do_request(params)
+      return result["result"]
+    rescue ZbxAPI_GeneralError => e
+      puts "An error was received from the Zabbix server"
+      if e.message.class==Hash
+        puts "Error code: #{e.message["code"]}"
+        puts "Error message: #{e.message["message"]}"
+        puts "Error data: #{e.message["data"]}"
+      end
+      puts "Original text:"
+      puts parameters
+      puts
+      return nil
+    end
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :raw_api
+  result_type :raw_api
 end
 
 ###############################################################################
@@ -282,12 +305,26 @@ end
 
 ZabconCommand.add_command "add host" do
   set_method {|params|
-#    {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
-    server.connection.host.create(params)
+    result=server.connection.host.create(params)
+    set_result_message "The following host was created: #{result['hostids']}"
+    result
   }
   set_flag :login_required
   set_flag :print_output
-  set_help_tag :get_host
+  set_help_tag :add_host
+  result_type :host
+end
+
+ZabconCommand.add_command "delete host" do
+  set_method {|params|
+    result=server.connection.host.delete(params)
+    set_result_message "The following host was deleted: #{result['hostids']}"
+    result
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :delete_host
+  result_type :host
 end
 
 ZabconCommand.add_command "get host" do
@@ -298,6 +335,21 @@ ZabconCommand.add_command "get host" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_host
+  result_type :host
+end
+
+###############################################################################
+#Host Group                                                         Host Group#
+###############################################################################
+
+ZabconCommand.add_command "add host group" do
+  set_method {|params|
+    server.connection.hostgroup.create(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :add_host_group
+  result_type :host
 end
 
 ZabconCommand.add_command "get host group" do
@@ -307,6 +359,7 @@ ZabconCommand.add_command "get host group" do
   default_show ["groupid", "name"]
   set_flag :print_output
   set_help_tag :get_host_group
+  result_type :host
 end
 
 ###############################################################################
@@ -321,6 +374,17 @@ ZabconCommand.add_command "add item" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :add_item
+  result_type :item
+end
+
+ZabconCommand.add_command "delete item" do
+  set_method { |params|
+    server.connection.item.delete(params)
+  }
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :delete_item
+  result_type :item
 end
 
 
@@ -335,11 +399,27 @@ ZabconCommand.add_command "get item" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_item
+  result_type :item
 end
 
 ###############################################################################
 #Trigger                                                               Trigger#
 ###############################################################################
+
+#TODO Improve parameter checking for add trigger
+# addtrigger( { trigger1, trigger2, triggern } )
+# Only expression and description are mandatory.
+# { { expression, description, type, priority, status, comments, url }, { ...} }
+ZabconCommand.add_command "add trigger" do
+  set_method { |params|
+    server.connection.trigger.create(params)
+  }
+  default_show ["triggerid","description", "status"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :add_trigger
+  result_type :trigger
+end
 
 ZabconCommand.add_command "get trigger" do
   set_method { |params|
@@ -349,6 +429,7 @@ ZabconCommand.add_command "get trigger" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_trigger
+  result_type :trigger
 end
 
 ###############################################################################
@@ -362,6 +443,7 @@ ZabconCommand.add_command "add user" do
   }
   set_flag :login_required
   set_help_tag :add_user
+  result_type :user
 end
 
 ZabconCommand.add_command "delete user" do
@@ -383,6 +465,7 @@ ZabconCommand.add_command "delete user" do
   }
   set_flag :login_required
   set_help_tag :delete_user
+  result_type :user
 end
 
 ZabconCommand.add_command "get user" do
@@ -393,6 +476,7 @@ ZabconCommand.add_command "get user" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_user
+  result_type :user
 end
 
 #TODO Test this command
@@ -426,5 +510,6 @@ ZabconCommand.add_command "update user" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :update_user
+  result_type :user
 end
 

@@ -35,6 +35,29 @@ require 'libs/zdebug'
 require 'singleton'
 require 'parseconfig'
 
+#This class is for containing responses from the Command tree
+class Response
+
+   class InvalidType < Exception
+   end
+
+   attr_accessor :data    #response data
+   attr_accessor :message
+   attr_reader :type
+
+   def initialize(val=nil, data_class=nil)
+     data=val
+     @type=nil
+     @message=nil
+   end
+
+  def type=(type)
+    raise InvalidType.new("Response.type must be a symbol") if type.class!=Symbol
+    @type=type
+  end
+ end
+
+
 # This class is for storing global variables.  This is accomplished by inheriting
 # the singleton class.  To use a global variable it must be registered and then
 # if some part of the program needs to be notified of a change a notifier can

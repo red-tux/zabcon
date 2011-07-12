@@ -151,11 +151,11 @@ class ZabbixServer
 #    {:class=>:host, :message=>"The following host was created: #{result['hostids']}", :result=>result}
 #  end
 
-  def deletehost(parameters)
-    debug(6,parameters)
-    result=@connection.host.delete(parameters)
-    {:class=>:host, :message=>"The following host(s) was/were deleted: #{result['hostids']}", :result=>result}
-  end
+#  def deletehost(parameters)
+#    debug(6,parameters)
+#    result=@connection.host.delete(parameters)
+#    {:class=>:host, :message=>"The following host(s) was/were deleted: #{result['hostids']}", :result=>result}
+#  end
 
 #  def getitem(parameters)
 #    debug(6,parameters)
@@ -169,10 +169,10 @@ class ZabbixServer
 #    {:class=>:item, :result=>@connection.item.create(parameters)}
 #  end
 
-  def deleteitem(parameters)
-    debug(6,parameters)
-    {:class=>:item, :result=>@connection.item.delete(parameters)}
-  end
+#  def deleteitem(parameters)
+#    debug(6,parameters)
+#    {:class=>:item, :result=>@connection.item.delete(parameters)}
+#  end
 
 #  def adduser(parameters)
 #    debug(6,parameters)
@@ -261,11 +261,11 @@ class ZabbixServer
 
   end
 
-  def addhostgroup(parameters)
-    debug(6,parameters)
-    result = @connection.hostgroup.create(parameters)
-    {:class=>:hostgroup, :result=>result}
-  end
+#  def addhostgroup(parameters)
+#    debug(6,parameters)
+#    result = @connection.hostgroup.create(parameters)
+#    {:class=>:hostgroup, :result=>result}
+#  end
 
 #  def gethostgroup(parameters)
 #    debug(6,parameters)
@@ -305,14 +305,14 @@ class ZabbixServer
     {:class=>:trigger, :result=>result}
   end
 
-  # addtrigger( { trigger1, trigger2, triggern } )
-  # Only expression and description are mandatory.
-  # { { expression, description, type, priority, status, comments, url }, { ...} }
-  def addtrigger(parameters)
-    debug(6,parameters)
-    result=@connection.trigger.create(parameters)
-    {:class=>:trigger, :result=>result}
-  end
+#  # addtrigger( { trigger1, trigger2, triggern } )
+#  # Only expression and description are mandatory.
+#  # { { expression, description, type, priority, status, comments, url }, { ...} }
+#  def addtrigger(parameters)
+#    debug(6,parameters)
+#    result=@connection.trigger.create(parameters)
+#    {:class=>:trigger, :result=>result}
+#  end
 
   def addlink(parameters)
     debug(6,parameters)
@@ -350,24 +350,24 @@ class ZabbixServer
 #    {:class=>:raw, :result=>result}
 #  end
 
-  def raw_json(parameters)
-    debug(6,parameters)
-    begin
-      result=@connection.do_request(parameters)
-      {:class=>:raw, :result=>result["result"]}
-    rescue ZbxAPI_GeneralError => e
-      puts "An error was received from the Zabbix server"
-      if e.message.class==Hash
-        puts "Error code: #{e.message["code"]}"
-        puts "Error message: #{e.message["message"]}"
-        puts "Error data: #{e.message["data"]}"
-      end
-      puts "Original text:"
-      puts parameters
-      puts
-      return {:class=>:raw, :result=>nil}
-    end
-  end
+#  def raw_json(parameters)
+#    debug(6,parameters)
+#    begin
+#      result=@connection.do_request(parameters)
+#      {:class=>:raw, :result=>result["result"]}
+#    rescue ZbxAPI_GeneralError => e
+#      puts "An error was received from the Zabbix server"
+#      if e.message.class==Hash
+#        puts "Error code: #{e.message["code"]}"
+#        puts "Error message: #{e.message["message"]}"
+#        puts "Error data: #{e.message["data"]}"
+#      end
+#      puts "Original text:"
+#      puts parameters
+#      puts
+#      return {:class=>:raw, :result=>nil}
+#    end
+#  end
 
 end
 

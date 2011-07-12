@@ -37,6 +37,54 @@ rescue LoadError
   exit 1
 end
 
+REQUIRED_RUBY_VER="1.8.6"
+DEPENDENCIES={
+  "parseconfig"=>true,
+  "json"=>true,
+  "highline"=>true,
+  "zbxapi"=>Gem::Version.new("0.1.294")
+}
+
+
+required_rev=REQUIRED_RUBY_VER.split('.')
+ruby_rev=RUBY_VERSION.split('.')
+items=ruby_rev.length < required_rev.length ? ruby_rev.length : required_rev.length
+
+for i in 0..items-1 do
+  if ruby_rev[i].to_i<required_rev[i].to_i
+    puts
+    puts "Zabcon requires Ruby version #{required_rev.join('.')} or higher."
+    puts "you are using Ruby version #{RUBY_VERSION}."
+    puts
+    exit(1)
+  end
+end
+
+
+depsok=true  #assume we will not fail dependencies
+
+DEPENDENCIES.each_key {|dep|
+  gem=Gem.source_index.find_name(dep)
+  if gem.empty?
+    puts " #{dep} : Not Installed"
+    depsok=false
+    break
+  end
+  gem=gem[0]
+  if DEPENDENCIES[dep].class==Gem::Version && gem.version<DEPENDENCIES[dep]
+    puts "#{dep} needs to be at least version #{DEPENDENCIES[dep]}, found #{gem.version}"
+    depsok=false
+  end
+}
+if !depsok
+  puts
+  puts "One or more dependencies failed"
+  puts "Please see the dependencies file for instructions on installing the"
+  puts "required dependencies"
+  puts
+  exit(1)
+end
+
 require 'libs/utility_items'
 require 'libs/revision'
 require 'optparse'
@@ -137,46 +185,6 @@ class ZabconApp
   # exit code of 1 if the dependency check fails
   # * ruby_rev is a string denoting the minimum version of ruby suitable
   # * *dependencies is an array of libraries which are required
-  def check_dependencies(required_rev,*dependencies)
-    puts "Checking dependencies" if EnvVars.instance["echo"]
-    depsok=true  #assume we will not fail dependencies
-
-    required_rev=required_rev.split('.')
-    ruby_rev=RUBY_VERSION.split('.')
-    items=ruby_rev.length < required_rev.length ? ruby_rev.length : required_rev.length
-
-    for i in 0..items-1 do
-      if ruby_rev[i].to_i<required_rev[i].to_i
-        puts
-        puts "Zabcon requires Ruby version #{required_rev.join('.')} or higher."
-        puts "you are using Ruby version #{RUBY_VERSION}."
-        puts
-        exit(1)
-      elsif ruby_rev[i].to_i>required_rev[i].to_i
-        break
-      end
-    end
-
-    #Convert the inbound array to a hash
-    deps = Hash[*dependencies.collect { |v|
-      [v,true]
-    }.flatten]
-
-    deps.each_key {|dep|
-      val=Gem.source_index.find_name(dep).map {|x| x.name}==[]
-      puts " #{dep} : Not Installed" if val
-      depsok=false if val
-    }
-    if !depsok
-      puts
-      puts "One or more dependencies failed"
-      puts "Please see the dependencies file for instructions on installing the"
-      puts "required dependencies"
-      puts
-      exit(1)
-    end
-  end
-
 
   def run
     begin
@@ -209,8 +217,6 @@ class ZabconApp
     end
 
     puts RUBY_PLATFORM if EnvVars.instance["echo"]
-
-    check_dependencies("1.8.6","parseconfig", "json", "highline")
 
     begin
       require 'readline'
