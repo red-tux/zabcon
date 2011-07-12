@@ -188,7 +188,7 @@ end
 
 class Command
   attr_reader :str, :aliases, :argument_processor, :flags, :valid_args
-  attr_reader :help_tag
+  attr_reader :help_tag, :path
 
   include ArgumentProcessor
 
@@ -425,6 +425,29 @@ class CommandList
   def register(command_str, function)
     cmd=Command.new(command_str,function)
     insert(command_str.split2,cmd)
+  end
+
+  def get_command_list(tree=nil)
+    def get_subtree(tree)
+      tmp=tree.dup
+      path=nil
+      if !tmp[:node].nil?
+        path=tree[:node].path.join(" ")
+        tmp.delete(:node)
+      end
+      tree=tmp
+
+      if tree.empty?
+        return path if !path.nil?
+        return nil
+      end
+      results=tree.keys.sort.map {|key|
+        get_subtree(tree[key])
+      }
+      [path,results]
+    end
+
+    get_subtree(@cmd_tree).flatten.compact.sort
   end
 
   private

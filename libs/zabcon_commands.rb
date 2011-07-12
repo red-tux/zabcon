@@ -51,6 +51,15 @@ ZabconCommand.add_command "help" do
   set_help_tag :help
 end
 
+ZabconCommand.add_command "help commands" do
+  set_method {
+    CommandList.instance.get_command_list.each {|item|
+      puts item
+    }
+  }
+  set_help_tag :help_commands
+end
+
 ZabconCommand.add_command "login" do
   set_method { |params|
 #    login server username password

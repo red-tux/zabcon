@@ -149,7 +149,6 @@ class ZabconCore
 #    # parameters for insert:  insert_path, command, commandproc, arguments=[], helpproc=nil, verify_func=nil, options
 #
 #    # These commands do not require a valid login
-#    @commands.insert ["help"], :help,no_args,@cmd_help.method(:help),@arg_processor.help, :suppress_printer
 #
 #    @commands.insert ["set","lines"], self.method(:set_lines),no_args,no_help,no_verify,:suppress_printer
 #    @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
