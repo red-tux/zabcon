@@ -148,13 +148,6 @@ class ZabconCore
 #
 #    # parameters for insert:  insert_path, command, commandproc, arguments=[], helpproc=nil, verify_func=nil, options
 #
-#    # These commands do not require a valid login
-#
-#    @commands.insert ["set","lines"], self.method(:set_lines),no_args,no_help,no_verify,:suppress_printer
-#    @commands.insert ["set","pause"], self.method(:set_pause),no_args,no_help,no_verify,:suppress_printer
-#    @commands.insert ["set","var"], self.method(:set_var), no_args, no_help, @arg_processor.method(:simple_processor),:suppress_printer
-#    @commands.insert ["unset","var"], self.method(:unset_var), no_args, no_help, @arg_processor.default, :use_array_processor, :suppress_printer
-#
 #      #Import commented out until fixed
 #      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
 #
@@ -169,13 +162,11 @@ class ZabconCore
 #
 #      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
 #      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
-#      @commands.insert ["delete","user"], @server.method(:deleteuser), ['id'], @cmd_help.method(:delete_user), @arg_processor.method(:delete_user)
 #      @commands.insert ["delete","host"], @server.method(:deletehost), no_args, @cmd_help.method(:delete_host), @arg_processor.method(:delete_host)
 #      @commands.insert ["delete","item"], @server.method(:deleteitem), ['itemid'], @cmd_help.method(:delete_item), @arg_processor.default
 #
 #      @commands.insert ["raw","json"], @server.method(:raw_json), no_args, @cmd_help.method(:raw_json), @arg_processor.method(:raw_processor)
 #
-#      @commands.insert ["update","user"], @server.method(:updateuser), no_args, no_help, no_verify
 #  end
 
   def start
@@ -249,25 +240,25 @@ class ZabconCore
   @server.login? ? " #{debug_part}+> " : " #{debug_part}-> "
   end
 
-  def set_lines(input)
-    @printer.sheight=input.keys[0].to_i
-  end
+#  def set_lines(input)
+#    @printer.sheight=input.keys[0].to_i
+#  end
 
-  def set_pause(input)
-    if input.nil? then
-      puts "set pause requires either Off or On"
-      return
-    end
-
-    if input.keys[0].upcase=="OFF"
-      @printer.sheight=@printer.sheight.abs*(-1)
-    elsif input.keys[0].upcase=="ON"
-      @printer.sheight=@printer.sheight.abs
-    else
-      puts "set pause requires either Off or On"
-    end
-    @printer.sheight = 24 if @printer.sheight==0
-  end
+#  def set_pause(input)
+#    if input.nil? then
+#      puts "set pause requires either Off or On"
+#      return
+#    end
+#
+#    if input.keys[0].upcase=="OFF"
+#      @printer.sheight=@printer.sheight.abs*(-1)
+#    elsif input.keys[0].upcase=="ON"
+#      @printer.sheight=@printer.sheight.abs
+#    else
+#      puts "set pause requires either Off or On"
+#    end
+#    @printer.sheight = 24 if @printer.sheight==0
+#  end
 
   def set_debug(input)
     if input["prompt"].nil? then
@@ -283,28 +274,28 @@ class ZabconCore
     set_facility_debug_level(:api,value)
   end
 
-  def set_var(input)
-    debug(6,input)
-    input.each {|key,val|
-      GlobalVars.instance[key]=val
-      puts "#{key} : #{val.inspect}"
-    }
-  end
+#  def set_var(input)
+#    debug(6,input)
+#    input.each {|key,val|
+#      GlobalVars.instance[key]=val
+#      puts "#{key} : #{val.inspect}"
+#    }
+#  end
 
-  def unset_var(input)
-    if input.empty?
-      puts "No variables given to unset"
-    else
-      input.each {|item|
-        if GlobalVars.instance[item].nil?
-          puts "#{item} *** Not Defined ***"
-        else
-          GlobalVars.instance.delete(item)
-          puts "#{item} Deleted"
-        end
-      }
-    end
-  end
+#  def unset_var(input)
+#    if input.empty?
+#      puts "No variables given to unset"
+#    else
+#      input.each {|item|
+#        if GlobalVars.instance[item].nil?
+#          puts "#{item} *** Not Defined ***"
+#        else
+#          GlobalVars.instance.delete(item)
+#          puts "#{item} Deleted"
+#        end
+#      }
+#    end
+#  end
 
 #
 # Import config from an XML file:

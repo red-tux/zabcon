@@ -116,11 +116,44 @@ ZabconCommand.add_command "load config" do
 end
 
 ZabconCommand.add_command "set debug" do
-  set_method{ |params|
-  env["debug"]=params[0]}
+  set_method{|params|
+    env["debug"]=params[0]
+  }
+  depreciated "set env debug=N"
   set_flag :array_params
   set_help_tag :set_debug
 end
+
+ZabconCommand.add_command "set lines" do
+  set_method{|params|
+    env["lines"]=params[0]
+  }
+  depreciated "set env lines=N"
+  set_flag :array_params
+  set_help_tag :set_lines
+end
+
+ZabconCommand.add_command "set pause" do
+  set_method{|params|
+    if params.nil? then
+      puts "set pause requires either Off or On"
+      return
+    end
+
+    if params.keys[0].upcase=="OFF"
+      env["lines"]=env["lines"].abs*(-1)
+    elsif params.keys[0].upcase=="ON"
+      env["lines"]=env["lines"].abs
+    else
+      puts "set pause requires either Off or On"
+    end
+    env["lines"]=24 if env["lines"]==0
+  }
+  set_flag :array_params
+  set_help_tag :set_pause
+end
+
+
 
 ZabconCommand.add_command "show var" do
   set_method { |params|
@@ -189,6 +222,35 @@ ZabconCommand.add_command "raw api" do
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
+end
+
+ZabconCommand.add_command "set var" do
+  set_method{|params|
+    params.each {|key,val|
+      GlobalVars.instance[key]=val
+      puts "#{key} : #{val.inspect}"
+    }
+  }
+  set_help_tag :set_var
+end
+
+ZabconCommand.add_command "unset var" do
+  set_method {|params|
+    if params.empty?
+      puts "No variables given to unset"
+    else
+      params.each {|item|
+        if GlobalVars.instance[item].nil?
+          puts "#{item} *** Not Defined ***"
+        else
+          GlobalVars.instance.delete(item)
+          puts "#{item} Deleted"
+        end
+      }
+    end
+  }
+  set_flag :array_params
+  set_help_tag :unset_var
 end
 
 ###############################################################################
@@ -269,7 +331,7 @@ ZabconCommand.add_command "get item" do
   set_valid_args ['itemids','hostids','groupids', 'triggerids','applicationids',
                   'status','templated_items','editable','count','pattern','limit',
                   'order', 'show']
-  default_show ["itemid", "key", "description"]
+  default_show ["itemid", "key_", "description"]
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_item
@@ -332,3 +394,37 @@ ZabconCommand.add_command "get user" do
   set_flag :print_output
   set_help_tag :get_user
 end
+
+#TODO Test this command
+ZabconCommand.add_command "update user" do
+  set_method { |params|
+    if parameters.nil? or parameters["userid"].nil? then
+      puts "Edit User requires arguments, valid fields are:"
+      puts "name, surname, alias, passwd, url, autologin, autologout, lang, theme, refresh"
+      puts "rows_per_page, type"
+      puts "userid is a required field"
+      puts "example:  edit user userid=<id> name=someone alias=username passwd=pass autologout=0"
+      return nil
+    else
+      p_keys = parameters.keys
+
+      valid_parameters.each {|key| p_keys.delete(key)}
+      if !p_keys.empty? then
+        puts "Invalid items"
+        p p_keys
+        return false
+      elsif parameters["userid"].nil?
+        puts "Missing required userid statement."
+      end
+      @connection.user.update([parameters])
+    end
+  }
+  set_valid_args ['userid','name', 'surname', 'alias', 'passwd', 'url',
+                  'autologin', 'autologout', 'lang', 'theme', 'refresh',
+                  'rows_per_page', 'type',]
+  default_show ["itemid", "key_", "description"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :update_user
+end
+

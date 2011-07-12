@@ -61,7 +61,7 @@ class OutputPrinter
     @lines=0                    # how many lines have been displayed thus far?
 
     # Check the environment variables to see if screen height has been set
-    EnvVars.instance["sheight"]=25 if EnvVars.instance["sheight"].nil?
+    EnvVars.instance["lines"]=24 if EnvVars.instance["lines"].nil?
   end
 
   def hash_width(item)
@@ -170,9 +170,9 @@ class OutputPrinter
   # after n lines have been printed
   # If @lines is set to -1 a side effect is created where pause is disabled.
   def pause? (lines=1)
-    if @interactive and EnvVars.instance["sheight"]>0 and (@lines>-1) then
+    if @interactive and EnvVars.instance["lines"]>0 and (@lines>-1) then
       @lines += lines
-      if @lines>=(EnvVars.instance["sheight"]-1) then
+      if @lines>=(EnvVars.instance["lines"]-1) then
         pause_msg = "Pause, q to quit, a to stop pausing output"
         Kernel.print pause_msg
         if RUBY_PLATFORM =~ /.*?mswin.*?/
@@ -207,8 +207,8 @@ class OutputPrinter
   def printline(widths)
     output="+"
     widths.each { |width| output+="-"+("-"*width)+"-+" }
-    pause? 1
     puts output
+    pause? 1
   end
 
   #Prints the table header

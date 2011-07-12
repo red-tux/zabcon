@@ -234,6 +234,7 @@ class Command
     #TODO Can the argument processor stuff be cleaned up?
     @argument_processor=method(:default_processor)
     @help_tag=nil
+    @depreciated=nil
   end
 
   def command_name
@@ -278,6 +279,10 @@ class Command
     @flags[:default_cols]=cols
   end
 
+  def depreciated(str)
+    @depreciated=str
+  end
+
   def arg_processor(&block)
     @argument_processor=block
   end
@@ -311,6 +316,7 @@ class Command
   end
 
   def execute(parameters)
+    puts @depreciated if !@depreciated.nil?
     if !@flags.nil? && @flags[:login_required] && !server.connected?
       raise LoginRequired.new("\"#{@command_name}\" requires an active login")
     end

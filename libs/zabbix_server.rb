@@ -206,31 +206,31 @@ class ZabbixServer
 #    end
 #  end
 
-  def updateuser(parameters)
-    debug(6,parameters)
-    valid_parameters=['userid','name', 'surname', 'alias', 'passwd', 'url', 'autologin',
-                      'autologout', 'lang', 'theme', 'refresh', 'rows_per_page', 'type',]
-    if parameters.nil? or parameters["userid"].nil? then
-      puts "Edit User requires arguments, valid fields are:"
-      puts "name, surname, alias, passwd, url, autologin, autologout, lang, theme, refresh"
-      puts "rows_per_page, type"
-      puts "userid is a required field"
-      puts "example:  edit user userid=<id> name=someone alias=username passwd=pass autologout=0"
-      return false
-    else
-      p_keys = parameters.keys
-
-      valid_parameters.each {|key| p_keys.delete(key)}
-      if !p_keys.empty? then
-        puts "Invalid items"
-        p p_keys
-        return false
-      elsif parameters["userid"].nil?
-        puts "Missing required userid statement."
-      end
-      p @connection.user.update([parameters])  #TODO: remove print statement or comment if needed
-    end
-  end
+#  def updateuser(parameters)
+#    debug(6,parameters)
+#    valid_parameters=['userid','name', 'surname', 'alias', 'passwd', 'url', 'autologin',
+#                      'autologout', 'lang', 'theme', 'refresh', 'rows_per_page', 'type',]
+#    if parameters.nil? or parameters["userid"].nil? then
+#      puts "Edit User requires arguments, valid fields are:"
+#      puts "name, surname, alias, passwd, url, autologin, autologout, lang, theme, refresh"
+#      puts "rows_per_page, type"
+#      puts "userid is a required field"
+#      puts "example:  edit user userid=<id> name=someone alias=username passwd=pass autologout=0"
+#      return false
+#    else
+#      p_keys = parameters.keys
+#
+#      valid_parameters.each {|key| p_keys.delete(key)}
+#      if !p_keys.empty? then
+#        puts "Invalid items"
+#        p p_keys
+#        return false
+#      elsif parameters["userid"].nil?
+#        puts "Missing required userid statement."
+#      end
+#      p @connection.user.update([parameters])  #TODO: remove print statement or comment if needed
+#    end
+#  end
 
   def addusermedia(parameters)
     debug(6,parameters)
@@ -376,7 +376,4 @@ end
 ##############################################
 
 if __FILE__ == $0
-  zbxcliserver = ZabbixServer.new("http://localhost/","apitest","test")   #Change as appropriate for platform
-
-  p zbxcliserver.getuser(nil)
 end
