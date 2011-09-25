@@ -95,12 +95,12 @@ class ZabconCore
     zabconcore=self
     if @input.respond_to?(:history)
       ZabconCommand.add_command "history" do
-        set_method { zabconcore.show_history }
+        set_method do  zabconcore.show_history end
         set_help_tag :history
       end
     else
       ZabconCommand.add_command "history" do
-        set_method { puts "History is not supported by your version of Ruby and ReadLine" }
+        set_method do puts "History is not supported by your version of Ruby and ReadLine" end
         set_help_tag :history
       end
     end
@@ -175,6 +175,7 @@ class ZabconCore
           debug(6, line, "Input from user")
 
           commands=ZabconExecuteContainer.new(line)
+          debug(8,commands,"Commands tree")
 
           commands.execute
           @printer.print(commands.results,commands.show_params) if commands.print?

@@ -16,11 +16,13 @@
 #along with this program; if not, write to the Free Software
 #Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+#--
 ##########################################
 # Subversion information
 # $Id$
 # $Revision$
 ##########################################
+#++
 
 require 'singleton'
 require 'libs/zdebug'
@@ -106,6 +108,8 @@ end
 
 class ZabconExecuteContainer
 
+  include ZDebug
+
   attr_reader :show_params, :results, :options
 
   def initialize(usr_str)
@@ -141,8 +145,12 @@ class ZabconExecuteContainer
       add(ZabconExecuteVariable.new(var_name))
 
       usr_str=split_str[2..split_str.length-1].join.strip
-      debug(5,str,"Continuging to parse with")
+      debug(5,usr_str,"Continuging to parse with")
     end
+
+    debug(6,split_str,"Split Str")
+    debug(6,split_str2,"Split Str2")
+    debug(6,usr_str,"User Str")
 
     cmd=commandlist.find_and_parse(usr_str)
     add(ZabconExecuteCommand.new(cmd))
@@ -186,14 +194,22 @@ class ZabconExecuteContainer
 
 end
 
+
+#Command is the main class used to define commands in Zabcon which are then
+#inserted into the global singleton class CommandList
 class Command
   attr_reader :str, :aliases, :argument_processor, :flags, :valid_args
   attr_reader :help_tag, :path
 
   include ArgumentProcessor
 
+  #Class containing processed arguments to be passed to the command
   class Arguments
-    attr_accessor :cmd_params, :show_params
+    class ParameterError < Exception
+    end
+
+    attr_accessor :cmd_params
+    attr_reader :show_params
 
     def initialize(args, flags)
       if args.class==String
@@ -212,6 +228,11 @@ class Command
         end
       end
     end
+
+    def show_params=(value)
+      raise ParameterError.new("Show argument must be of type Array") if !vaue.is_a?(Array)
+      @show_params=value
+    end
   end
 
   class LoginRequired < Exception
@@ -221,6 +242,9 @@ class Command
   end
 
   class ArgumentError < Exception
+  end
+
+  class LoopError < Exception
   end
 
   def initialize(path)
@@ -254,10 +278,12 @@ class Command
     @cmd_method=cmd_method
   end
 
+  #Adds an alias name for the current command
   def add_alias(name)
     @aliases<<name.split2
   end
 
+  #How many alias' are there?
   def alias_total
     @aliases.length
   end
@@ -296,7 +322,13 @@ class Command
     @help_tag=sym
   end
 
+  #--
   #TODO Complete type casting section and add error checking
+  #++
+  #Valid flags:
+  # :login_required  - command requires a valid login
+  # :print_output  - the output of the command will be passed to the print processor
+  # :array_params  - Only process the parameters as an array
   def set_flag(flag)
     case flag.class.to_s
       when "Symbol"
@@ -307,28 +339,42 @@ class Command
   end
 
   def call_arg_processor(parameters)
+    def set_show_args(args)
+      @arguments.show_params=args
+    end
+
+    @arguments=Arguments.new("",@flags)
     result=@argument_processor.call(parameters,@valid_args,@flags)
-    return result if result.class==Arguments
-    if result.class!=String && result.class!=Hash && result.class!=Array
+    return result if result.is_a?(Arguments)
+    if !result.is_a?(String) && !result.is_a?(Hash) && !result.is_a?(Array)
       raise ("Arugment processor for \"#{command_name}\" returned invalid parameters: class: #{result.class}, #{result}")
     else
-      Arguments.new(result,@flags)
+      @arguments.cmd_params=result
+      arguments=@arguments
+      return arguments
     end
   end
 
+  #Sets the symbold describing the result type.  May be used by the print processor
+  # as a hint for printing the output.
   def result_type(type)
     @result_type=type
   end
 
   def execute(parameters)
     def set_result_message(msg)
-      @result.message=msg
+      @response.message=msg
     end
 
     def set_result_type(type)
-      @result.type=type
+      @response.type=type
     end
 
+#    def output(params)
+#      @response.data<<params
+#    end
+
+    raise LoopError.new("Loop detected, Command.execute called more than 3 times") if caller.grep(caller[0]).length>3
     @response=Response.new
     @response.type=@result_type if !@result_type.nil?
 
@@ -339,7 +385,7 @@ class Command
 
     @response.data=@cmd_method.call(parameters)
 
-    retval=@response.dup  #ensure @result is empty for our next use
+    retval=@response  #ensure @result is empty for our next use
     @response=nil
 
     retval
@@ -485,7 +531,13 @@ class CommandList
   end
 end
 
+#Base module for instantiating Zabcon commands.
 module ZabconCommand
+  #Method used to add commands to the Zabcon command processor
+  #path is the command path such as "get host group"
+  #A block must also be passed, this block will be executed against the
+  # Command object to to define the command and then inserted into the
+  # global CommandList singleton.
   def self.add_command (path, &block)
     path=
         if path.class==Array

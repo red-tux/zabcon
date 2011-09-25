@@ -1,6 +1,6 @@
 ZabconCommand.add_command "custom" do
-  set_method { |params|
+  set_method do |params|
     puts "My Custom Command"
-  }
+  end
   set_help_tag :none
 end

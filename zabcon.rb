@@ -243,5 +243,19 @@ class ZabconApp
   end
 end
 
-zabconapp=ZabconApp.new()
-zabconapp.run()
+begin
+  zabconapp=ZabconApp.new()
+  zabconapp.run()
+rescue Exception => e
+  puts "Runtime error detected"
+  puts "(#{e.class}): #{e.message}"
+  puts
+  puts "Top 10 items in backtrace"
+  n=1
+  e.backtrace.first(10).each {|i|
+    puts "#{n}: #{i}"
+    n+=1
+  }
+end
+
+

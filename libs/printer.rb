@@ -354,13 +354,13 @@ class OutputPrinter
 #    p dataset[:result].class
       if dataset.data.class==Array then
         print_array(dataset,cols_to_show)
-      elsif dataset.result.class==Hash then
+      elsif dataset.data.class==Hash then
         print_hash(dataset,cols_to_show)
-      elsif dataset.result.class!=NilClass then
+      elsif dataset.data.class!=NilClass then
         puts "Unknown object received by the print routine"
         puts "Class type: #{dataset.result.class}"
         puts "Data:"
-        p dataset.result
+        p dataset.data
       end
     rescue TypeError
       puts "***********************************************************"

@@ -125,7 +125,21 @@ module ArgumentProcessor
   end
 
   def params_to_hash2(line)
+    params=line.split2
+    p line
 
+
+    params.map { |item|
+      item.strip!
+      if item =~ /^(.*?)=(.*)$/ then
+        Regexp.last_match
+        lside=Regexp.last_match(1)
+        rside=Regexp.last_match(2)
+        {lside=>params_to_hash2(rside)}
+      else
+        {item=>true}
+      end
+    }
   end
 
     #substitute_vars
@@ -612,24 +626,24 @@ end
 
 
 if __FILE__ == $0
-#
-#  #If we don't have the each_char method for the string class include the module that has it.
-#  if !String.method_defined?("each_char")
-#    require 'jcode'
-#  end
-#
-#  require 'pp'
-#
-#  include ZDebug
-#  set_debug_level(1)
-#  arg_processor=ArgumentProcessor.new
-#
-#  p arg='i1=2 i2=item i3="this is a short sentence" i4="a string with a \" char"'
-#  pp arg_processor.params_to_hash(arg),"----"
-#
-#  p arg='one=-2 two="" three=1,2 four=[1,2,three]'
-#  pp arg_processor.params_to_hash(arg),"----"
-#
-#  p arg='hosts=[{hostid=10017}] name="zzz"'
-#  pp arg_processor.params_to_hash(arg)
+
+  #If we don't have the each_char method for the string class include the module that has it.
+  if !String.method_defined?("each_char")
+    require 'jcode'
+  end
+
+  require 'pp'
+
+  include ZDebug
+  set_debug_level(1)
+  arg_processor=ArgumentProcessor.new
+
+  p arg='i1=2 i2=item i3="this is a short sentence" i4="a string with a \" char"'
+  pp arg_processor.params_to_hash(arg),"----"
+
+  p arg='one=-2 two="" three=1,2 four=[1,2,three]'
+  pp arg_processor.params_to_hash(arg),"----"
+
+  p arg='hosts=[{hostid=10017}] name="zzz"'
+  pp arg_processor.params_to_hash(arg)
 end

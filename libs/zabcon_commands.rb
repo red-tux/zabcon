@@ -25,16 +25,16 @@ require "libs/zdebug"
 
 
 ZabconCommand.add_command "exit" do
-  set_method {
+  set_method do
     puts "Exiting"
     throw :exit
-  }
+  end
   set_help_tag :exit
   add_alias "quit"
 end
 
 ZabconCommand.add_command "help" do
-  set_method { |params|
+  set_method do |params|
     if params.empty?
       puts CommandHelp.get(:help)
     else
@@ -46,41 +46,41 @@ ZabconCommand.add_command "help" do
         puts CommandHelp.get(tag)
       end
     end
-  }
+  end
   set_flag :array_params
   set_help_tag :help
 end
 
 ZabconCommand.add_command "help commands" do
-  set_method {
+  set_method do
     CommandList.instance.get_command_list.each {|item|
       puts item
     }
-  }
+  end
   set_help_tag :help_commands
 end
 
 ZabconCommand.add_command "login" do
-  set_method { |params|
+  set_method do |params|
 #    login server username password
     server.server_url=params[0]
     server.username=params[1]
     server.password=params[2]
     server.login
-  }
+  end
   set_help_tag :help
   set_flag :array_params
 end
 
 ZabconCommand.add_command "logout" do
-  set_method {
+  set_method do
     server.logout
-  }
+  end
   set_help_tag :logout
 end
 
 ZabconCommand.add_command "info" do
-  set_method{
+  set_method do
     puts "Current settings"
     puts "Server"
     if !server.connected?
@@ -93,48 +93,48 @@ ZabconCommand.add_command "info" do
     puts " Current screen length #{env["sheight"]}"
     puts "Other"
     puts " Debug level %d" % env["debug"]
-  }
+  end
   set_help_tag :info
 end
 
 ZabconCommand.add_command "set env" do
-  set_method { |params|
+  set_method do |params|
 
-    params.each{|key,val|
+    params.each { |key,val|
     env[key]=val
     puts "#{key} : #{val.inspect}"
     }
-  }
+  end
   set_help_tag :set_env
 end
 
 ZabconCommand.add_command "load config" do
-  set_method { |params|
+  set_method do |params|
     env.load_config(params)
-  }
+  end
   set_help_tag :load_config
 end
 
 ZabconCommand.add_command "set debug" do
-  set_method{|params|
+  set_method do |params|
     env["debug"]=params[0]
-  }
+  end
   depreciated "set env debug=N"
   set_flag :array_params
   set_help_tag :set_debug
 end
 
 ZabconCommand.add_command "set lines" do
-  set_method{|params|
+  set_method do |params|
     env["lines"]=params[0]
-  }
+  end
   depreciated "set env lines=N"
   set_flag :array_params
   set_help_tag :set_lines
 end
 
 ZabconCommand.add_command "set pause" do
-  set_method{|params|
+  set_method do |params|
     if params.nil? then
       puts "set pause requires either Off or On"
       return
@@ -148,13 +148,13 @@ ZabconCommand.add_command "set pause" do
       puts "set pause requires either Off or On"
     end
     env["lines"]=24 if env["lines"]==0
-  }
+  end
   set_flag :array_params
   set_help_tag :set_pause
 end
 
 ZabconCommand.add_command "show var" do
-  set_method { |params|
+  set_method do |params|
     if params.empty?
       if GlobalVars.instance.empty?
         puts "No variables defined"
@@ -172,13 +172,13 @@ ZabconCommand.add_command "show var" do
         end
       }
     end
-  }
+  end
   set_help_tag :show_var
   set_flag :array_params
 end
 
 ZabconCommand.add_command "show env" do
-  set_method { |params|
+  set_method do |params|
     if params.empty?
       if env.empty?
         puts "No variables defined"
@@ -196,27 +196,27 @@ ZabconCommand.add_command "show env" do
         end
       }
     end
-  }
+  end
   set_help_tag :show_env
   set_flag :array_params
 end
 
 ZabconCommand.add_command "set var" do
-  set_method{|params|
-    params.each {|key,val|
+  set_method do |params|
+    params.each { |key,val|
       GlobalVars.instance[key]=val
       puts "#{key} : #{val.inspect}"
     }
-  }
+  end
   set_help_tag :set_var
 end
 
 ZabconCommand.add_command "unset var" do
-  set_method {|params|
+  set_method do |params|
     if params.empty?
       puts "No variables given to unset"
     else
-      params.each {|item|
+      params.each { |item|
         if GlobalVars.instance[item].nil?
           puts "#{item} *** Not Defined ***"
         else
@@ -225,27 +225,27 @@ ZabconCommand.add_command "unset var" do
         end
       }
     end
-  }
+  end
   set_flag :array_params
   set_help_tag :unset_var
 end
 
 ZabconCommand.add_command "raw api" do
-  set_method {|params|
+  set_method do |params|
     api_func=params[:method]
     params=params[:params]
 
     server.connection.raw_api(api_func, params)
-  }
+  end
 
-  arg_processor {|*params|
+  arg_processor do |params,valid_args,flags|
     parameter_error "Command \"raw api\" requires parameters" if params.empty?
-    params=params[0].split2
+    params=params.split2
     api_func=params[0]
     params.delete_at(0)
     retval= params_to_hash(params.join(" "))
     {:method=>api_func, :params=>retval}
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
@@ -253,7 +253,7 @@ ZabconCommand.add_command "raw api" do
 end
 
 ZabconCommand.add_command "raw json" do
-  set_method {|params|
+  set_method do |params|
     begin
       result=server.connection.do_request(params)
       return result["result"]
@@ -269,11 +269,22 @@ ZabconCommand.add_command "raw json" do
       puts
       return nil
     end
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
+end
+
+ZabconCommand.add_command "test" do
+  set_method do |params|
+    test="one=[one two three four=4] two three four=five=six=seven"
+    p test
+    p params_to_hash2(test)
+  end
+#  set_flag :print_output
+  set_help_tag :print
+  result_type :none
 end
 
 ###############################################################################
@@ -281,9 +292,9 @@ end
 ###############################################################################
 
 ZabconCommand.add_command "add app" do
-  set_method {|params|
+  set_method do |params|
     server.connection.application.create(params)
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :add_app
@@ -291,9 +302,9 @@ end
 
 
 ZabconCommand.add_command "get app" do
-  set_method {|params|
+  set_method do |params|
     server.connection.application.get(params)
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :get_app
@@ -304,11 +315,11 @@ end
 ###############################################################################
 
 ZabconCommand.add_command "add host" do
-  set_method {|params|
+  set_method do |params|
     result=server.connection.host.create(params)
     set_result_message "The following host was created: #{result['hostids']}"
     result
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :add_host
@@ -316,11 +327,11 @@ ZabconCommand.add_command "add host" do
 end
 
 ZabconCommand.add_command "delete host" do
-  set_method {|params|
+  set_method do |params|
     result=server.connection.host.delete(params)
     set_result_message "The following host was deleted: #{result['hostids']}"
     result
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :delete_host
@@ -328,9 +339,9 @@ ZabconCommand.add_command "delete host" do
 end
 
 ZabconCommand.add_command "get host" do
-  set_method {|params|
+  set_method do |params|
     server.connection.host.get(params)
-  }
+  end
   default_show ["hostid", "host", "dns", "ip"]
   set_flag :login_required
   set_flag :print_output
@@ -343,9 +354,9 @@ end
 ###############################################################################
 
 ZabconCommand.add_command "add host group" do
-  set_method {|params|
+  set_method do |params|
     server.connection.hostgroup.create(params)
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :add_host_group
@@ -353,9 +364,9 @@ ZabconCommand.add_command "add host group" do
 end
 
 ZabconCommand.add_command "get host group" do
-  set_method { |params|
+  set_method do |params|
     server.connection.hostgroup.get(params)
-  }
+  end
   default_show ["groupid", "name"]
   set_flag :print_output
   set_help_tag :get_host_group
@@ -368,9 +379,9 @@ end
 
 
 ZabconCommand.add_command "add item" do
-  set_method { |params|
+  set_method do |params|
     server.connection.item.create(params)
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :add_item
@@ -378,9 +389,9 @@ ZabconCommand.add_command "add item" do
 end
 
 ZabconCommand.add_command "delete item" do
-  set_method { |params|
+  set_method do |params|
     server.connection.item.delete(params)
-  }
+  end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :delete_item
@@ -389,9 +400,9 @@ end
 
 
 ZabconCommand.add_command "get item" do
-  set_method { |params|
+  set_method do |params|
     server.connection.item.get(params)
-  }
+  end
   set_valid_args ['itemids','hostids','groupids', 'triggerids','applicationids',
                   'status','templated_items','editable','count','pattern','limit',
                   'order', 'show']
@@ -411,9 +422,9 @@ end
 # Only expression and description are mandatory.
 # { { expression, description, type, priority, status, comments, url }, { ...} }
 ZabconCommand.add_command "add trigger" do
-  set_method { |params|
+  set_method do |params|
     server.connection.trigger.create(params)
-  }
+  end
   default_show ["triggerid","description", "status"]
   set_flag :login_required
   set_flag :print_output
@@ -422,9 +433,9 @@ ZabconCommand.add_command "add trigger" do
 end
 
 ZabconCommand.add_command "get trigger" do
-  set_method { |params|
+  set_method do |params|
     server.connection.trigger.get(params)
-  }
+  end
   default_show ["triggerid","description", "status"]
   set_flag :login_required
   set_flag :print_output
@@ -437,17 +448,17 @@ end
 ###############################################################################
 
 ZabconCommand.add_command "add user" do
-  set_method { |params|
+  set_method do |params|
     uid=server.connection.user.create(params)
     puts "Created userid: #{uid["userids"]}"
-  }
+  end
   set_flag :login_required
   set_help_tag :add_user
   result_type :user
 end
 
 ZabconCommand.add_command "delete user" do
-  set_method { |params|
+  set_method do |params|
     id=0
     if !params["name"].nil?
       users=server.connection.user.get({"pattern"=>params["name"], "extendoutput"=>true})
@@ -462,16 +473,16 @@ ZabconCommand.add_command "delete user" do
     else
       puts "Error deleting #{params.to_a[0][1]}"
     end
-  }
+  end
   set_flag :login_required
   set_help_tag :delete_user
   result_type :user
 end
 
 ZabconCommand.add_command "get user" do
-  set_method { |params|
+  set_method do |params|
     server.connection.user.get(params)
-  }
+  end
   default_show ["userid","name","surname","alias"]
   set_flag :login_required
   set_flag :print_output
@@ -481,7 +492,7 @@ end
 
 #TODO Test this command
 ZabconCommand.add_command "update user" do
-  set_method { |params|
+  set_method do |params|
     if parameters.nil? or parameters["userid"].nil? then
       puts "Edit User requires arguments, valid fields are:"
       puts "name, surname, alias, passwd, url, autologin, autologout, lang, theme, refresh"
@@ -502,7 +513,7 @@ ZabconCommand.add_command "update user" do
       end
       @connection.user.update([parameters])
     end
-  }
+  end
   set_valid_args ['userid','name', 'surname', 'alias', 'passwd', 'url',
                   'autologin', 'autologout', 'lang', 'theme', 'refresh',
                   'rows_per_page', 'type',]
