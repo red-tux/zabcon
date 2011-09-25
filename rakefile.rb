@@ -21,30 +21,46 @@
 # $Revision: $
 ##########################################
 
-#
-#Remove this note section when using in a normal file
-#
-# This is a skeleton file, use this file to create any new files.
-# This file has the default GNU header and copyright, SVN tags
-# and default lib file path creation helper.
-#
-# To use copy this file to the desired new file name
-# Add the file to svn (svn add <filename>
-# Set the properties for svn:
-#  svn propset svn:keywords Id <filename>
-#  svn propset svn:keywords Revision <filename>
-#
-#Remove this note section when using in a normal file
-#
+require 'rubygems'
+require 'rake/gempackagetask'
 
-task :get_revision do
-  @rev = %x[svn -R info * | grep Revis | cut -f2 -d" "|sort -ur|head -1]
+$rev = %x[svn -R info * 2>&1 | grep Revis | cut -f2 -d" "|sort -ur|head -1].chop.to_i
+
+spec = Gem::Specification.new do |s|
+  s.name = %q{zabcon}
+  s.rubyforge_project = "zabcon"
+  s.version = "0.0.#{$rev}"
+  s.authors = ["A. Nelson"]
+  s.email = %q{nelsonab@red-tux.net}
+  s.summary = %q{Zabcon command line interface for Zabbix}
+  s.homepage = %q{http://trac.red-tux.net/}
+  s.description = %q{Zabcon is a command line interface for Zabbix written in Ruby}
+  s.licenses = "GPL 2.0"
+  s.requirements = "Requires zbxapi, parseconfig and highline"
+  s.add_dependency("zbxapi", '>=0.1.315')
+  s.add_dependency("parseconfig")
+  s.add_dependency("highline")
+  s.required_ruby_version = '>=1.8.6'
+  s.require_paths =["."]
+  s.files =
+    ["zabcon.rb", "zabcon.conf.default", "README",
+     "libs/argument_processor.rb", "libs/revision.rb",
+     "libs/command_help.rb", "libs/command_tree.rb",
+     "libs/help.xml", "libs/input.rb", "libs/printer.rb",
+     "libs/zabcon_commands.rb",
+      "libs/zabcon_core.rb","libs/zabcon_exceptions.rb",
+      "libs/zabcon_globals.rb", "libs/zabbix_server.rb",
+      "libs/utility_items.rb"]
+  s.bindir = "."
+  s.executables << "zabcon.rb"
+  s.default_executable="zabcon"
 end
 
+
 desc "Update the revision to the lastest svn number"
-task :update_revision => [:get_revision] do
+task :update_revision do
   open("libs/revision.rb", "w") do |outfile|
-    outfile.puts "REVISION=#{@rev}"
+    outfile.puts "REVISION=#{$rev}"
   end
 end
 
@@ -60,9 +76,9 @@ end
 desc "Build dependencies to test Zabcon"
 task :test => [:update_revision, :checkout_zbxapi]
 
+task :default => [:update_revision, :package]
 
-
-task :default do
-  puts "Default task disabled"
-  puts "for testing use: rake test"
+Rake::GemPackageTask.new(spec) do |pkg|
+  pkg.package_dir = "gems"
+#  pkg.version = "0.1.#{$rev}"
 end

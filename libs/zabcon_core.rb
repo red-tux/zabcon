@@ -60,7 +60,7 @@ class ZabconCore
     CommandHelp.setup("english")
 
     #TODO Remove reference to ArgumentProcessor when new command objects in use
-    debug(5,msg=>"Setting up ArgumentProcessor")
+    debug(5,:msg=>"Setting up ArgumentProcessor")
 #    @arg_processor=ArgumentProcessor.new  # Need to instantiate for debug routines
 
     if !env["server"].nil? and !env["username"].nil? and !env["password"].nil? then
@@ -68,6 +68,8 @@ class ZabconCore
       begin
         ZabbixServer.instance.login
 
+      rescue ZbxAPI_ExceptionBadAuth => e
+        puts e.message
       rescue ZbxAPI_ExceptionLoginPermission
         puts "Error Invalid login or no API permissions."
       end

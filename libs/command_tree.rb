@@ -148,7 +148,7 @@ class ZabconExecuteContainer
       debug(5,:var=>usr_str,:msg=>"Continuging to parse with")
     end
 
-    debug(6,:var=>split_str,,:msg=>"Split Str")
+    debug(6,:var=>split_str,:msg=>"Split Str")
     debug(6,:var=>split_str2,:msg=>"Split Str2")
     debug(6,:var=>usr_str,:msg=>"User Str")
 
