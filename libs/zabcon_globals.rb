@@ -73,7 +73,7 @@ class GlobalsBase
 
   # overload the assignment operator
   def []=(key,val)
-    debug(9,[key,val],"Entering []= (key,val)",nil,true)
+    debug(9,:var=>[key,val],:msg=>"Entering []= (key,val)",:overload=>true)
     if val.nil?
       delete(key) if !@hash[key].nil?
     else
@@ -93,7 +93,7 @@ class GlobalsBase
 
   # overload the array operator
   def [](key)
-    debug(9,key,"Entering [] (key)",nil,true)
+    debug(9,:var=>key,:msg=>"Entering [] (key)",:overload=>true)
     if @hash[key].nil?
       return nil
     else
@@ -115,7 +115,7 @@ class GlobalsBase
 
   # Register a function to be called when the value of key changes.
   def register_notifier(key,proc)
-    debug(9,[key,proc],"Entering register_notifier (key,proc)")
+    debug(9,:var=>[key,proc],:msg=>"Entering register_notifier (key,proc)")
     if @callbacks[key].nil?
       @callbacks[key]=[proc]
     else

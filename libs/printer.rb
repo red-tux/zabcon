@@ -258,20 +258,20 @@ class OutputPrinter
   end
 
   def print_array(dataset,cols)
-    debug(6,dataset,"dataset",150)
-    debug(6,cols,"cols",50)
+    debug(6,:var=>dataset,:msg=>"dataset",:truncate=>150)
+    debug(6,:var=>cols,:msg=>"cols",:truncate=>50)
     count=0
     type=dataset.type
     results=dataset.data
 
-    debug(6,type,"Array type")
+    debug(6,:var=>type,:msg=>"Array type")
 
     puts "#{dataset.type.to_s.capitalize} result set"  if EnvVars.instance["echo"]
 
     if results.length==0
       puts "Result set empty"
     elsif results[0].class==Hash then
-      debug(7,"Results type is Hash")
+      debug(7,:msg=>"Results type is Hash")
       header=[]
       if cols.nil? then
         case type
@@ -299,7 +299,7 @@ class OutputPrinter
         header=cols.split(',')
       end
 
-      debug(6,header,"header")
+      debug(6,:var=>header,:msg=>"header")
 
       widths=getcolwidth(results,header)
 
@@ -319,7 +319,7 @@ class OutputPrinter
 
 
     else
-      debug(7,"Results type is not Hash, assuming array")
+      debug(7,:msg=>"Results type is not Hash, assuming array")
       widths = getcolwidth(results,["id"])   # always returns an array of widths
 
       printline(widths)            # hacking parameters to overload functions
@@ -340,8 +340,8 @@ class OutputPrinter
 
   def print(dataset,cols)
     begin
-      debug(6,dataset,"Dataset",200)
-      debug(6,cols,"Cols",40)
+      debug(6,:var=>dataset,:msg=>"Dataset",:truncate=>200)
+      debug(6,:var=>cols,:msg=>"Cols",:truncate=>40)
       @lines=0
       if !cols   #cols==nil
         cols_to_show=nil

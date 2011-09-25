@@ -77,13 +77,10 @@ module ArgumentProcessor
   #
   # TODO this could use some cleanup.
   def params_to_hash(line)
-#    debug(5,line,"line")
     params=line.split2
-#    debug(5,params,"After split")
 
     retval = {}
     params.each do |item|
-#      debug(9,item,"parsing")
       item.strip!
       if item =~ /^(.*?)=(.*?)$/ then
         Regexp.last_match
@@ -119,7 +116,6 @@ module ArgumentProcessor
          end
             retval.merge!(item=>true)
       end
-#      debug(9,retval,"parsed")
     end
     retval
   end
@@ -189,9 +185,9 @@ module ArgumentProcessor
       args.gsub(/\\\$/, '$')
     end
 
-    debug(2,args,"Pre substitution")
+    debug(2,:msg=>"Pre substitution",:var=>args)
     args=unescape(substitute(split(args)).join)
-    debug(2,args,"Post substitution")
+    debug(2,:var=>args,:msg=>"Post substitution")
 
     return args
   end
@@ -207,9 +203,6 @@ module ArgumentProcessor
   def default_processor(args,valid_args,*flags)
     args=args.strip  #remove preceding and trailing whitespace
     flags=flags[0]
-
-#    debug(5,args,"default_processor args")
-#    debug(5,flags,"default_processor flags")
 
     if flags[:not_empty]
       raise ParameterError.new("No arguments",:retry=>true) if args.empty?
@@ -251,7 +244,6 @@ module ArgumentProcessor
 
 #  # This processor does not do anything fancy.  All items passed in via args are passed back in api_params
 #  def simple_processor(help_func,valid_args,args,user_vars,*options)
-#    debug(7,args,"default argument processor")
 #
 #    args=substitute_vars(args)
 #    args=params_to_hash(args)
@@ -261,7 +253,6 @@ module ArgumentProcessor
 #
 #  # This is the default processor for get commands.  It adds "limit" and "extendoutput" as needed
 #  def default_get_processor(help_func, valid_args, args, user_vars, *options)
-#    debug(7,args,"default get helper")
 #
 #    # let the default processor set things up
 #    retval=default_processor(help_func,valid_args,args,user_vars,options)
@@ -316,7 +307,6 @@ module ArgumentProcessor
 #  # processor does not do variable substitution
 #  # TODO: Consider removing function as it appears not be used
 #  def hash_processor(help_func,valid_args,args,user_vars,*options)
-#    debug(6,args,"Args")
 #    debug(6,options,"Options")
 #    items=args.split2
 #    if items.count % 2 == 0

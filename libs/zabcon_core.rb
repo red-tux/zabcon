@@ -55,12 +55,12 @@ class ZabconCore
     env.register_notifier("api_debug",self.method(:set_debug_api_level))
 
     @printer=OutputPrinter.new
-    debug(5,"Setting up help")
+    debug(5,:msg=>"Setting up help")
 #    @cmd_help=CommandHelp.new("english")  # Setup help functions, determine default language to use
     CommandHelp.setup("english")
 
     #TODO Remove reference to ArgumentProcessor when new command objects in use
-    debug(5,"Setting up ArgumentProcessor")
+    debug(5,msg=>"Setting up ArgumentProcessor")
 #    @arg_processor=ArgumentProcessor.new  # Need to instantiate for debug routines
 
     if !env["server"].nil? and !env["username"].nil? and !env["password"].nil? then
@@ -73,7 +73,7 @@ class ZabconCore
       end
     end
 
-    debug(5,"Setting up prompt")
+    debug(5,:msg=>"Setting up prompt")
     @debug_prompt=false
     if env["have_tty"]
       prc=Proc.new do
@@ -107,7 +107,7 @@ class ZabconCore
 ###############################################################################
 ###############################################################################
 
-    debug(5,"Setting up custom commands")
+    debug(5,:msg=>"Setting up custom commands")
 
     if !env["custom_commands"].nil?
       filename=nil
@@ -126,7 +126,7 @@ class ZabconCore
       end
     end
 
-    debug(5,"Setup complete")
+    debug(5,:msg=>"Setup complete")
   end
 
 #  #TODO The following method may need to be removed when new command object in use
@@ -162,7 +162,7 @@ class ZabconCore
 #      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
 
   def start
-    debug(5,"Entering main zabcon start routine")
+    debug(5,:msg=>"Entering main zabcon start routine")
     puts "Welcome to Zabcon.  Build Number: #{REVISION}"  if env["echo"]
     puts "Use the command 'help' to get help on commands" if env["have_tty"] || env["echo"]
 
@@ -172,10 +172,10 @@ class ZabconCore
           line=line.strip_comments
           next if line.nil?
           next if line.strip.length==0  # don't bother parsing an empty line'
-          debug(6, line, "Input from user")
+          debug(6, :var=>line, :msg=>"Input from user")
 
           commands=ZabconExecuteContainer.new(line)
-          debug(8,commands,"Commands tree")
+          debug(8,:var=>commands,:msg=>"Commands tree")
 
           commands.execute
           @printer.print(commands.results,commands.show_params) if commands.print?
@@ -294,7 +294,7 @@ class ZabconCore
 # Import config from an XML file:
 #
   def do_import(input)
-    debug(5,input,"args")
+    debug(5,:var=>input,:msg=>"args")
 
     input=input[0]
 

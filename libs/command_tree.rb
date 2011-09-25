@@ -141,16 +141,16 @@ class ZabconExecuteContainer
       var_name=split_str[0].strip
       raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
 
-      debug(5,var_name,"Creating Variable assignment")
+      debug(5,:var=>var_name,:msg=>"Creating Variable assignment")
       add(ZabconExecuteVariable.new(var_name))
 
       usr_str=split_str[2..split_str.length-1].join.strip
-      debug(5,usr_str,"Continuging to parse with")
+      debug(5,:var=>usr_str,:msg=>"Continuging to parse with")
     end
 
-    debug(6,split_str,"Split Str")
-    debug(6,split_str2,"Split Str2")
-    debug(6,usr_str,"User Str")
+    debug(6,:var=>split_str,,:msg=>"Split Str")
+    debug(6,:var=>split_str2,:msg=>"Split Str2")
+    debug(6,:var=>usr_str,:msg=>"User Str")
 
     cmd=commandlist.find_and_parse(usr_str)
     add(ZabconExecuteCommand.new(cmd))

@@ -233,7 +233,7 @@ class ZabbixServer
 #  end
 
   def addusermedia(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     valid_parameters=["userid", "mediatypeid", "sendto", "severity", "active", "period"]
 
     if parameters.nil? then
@@ -275,7 +275,7 @@ class ZabbixServer
 #  end
 
   def gethostgroupid(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result = @connection.hostgroup.getObjects(parameters)
     {:class=>:hostgroupid, :result=>result}
   end
@@ -294,13 +294,13 @@ class ZabbixServer
 #  end
 
   def getappid(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.application.getid(parameters)
     {:class=>:application, :result=>result}
   end
 
   def gettrigger(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.trigger.get(parameters)
     {:class=>:trigger, :result=>result}
   end
@@ -315,31 +315,31 @@ class ZabbixServer
 #  end
 
   def addlink(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.sysmap.addlink(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addsysmap(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.sysmap.create(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addelementtosysmap(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.sysmap.addelement(parameters)
     {:class=>:map, :result=>result}
   end
 
   def getseid(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.sysmap.getseid(parameters)
     {:class=>:map, :result=>result}
   end
 
   def addlinktrigger(parameters)
-    debug(6,parameters)
+    debug(6,:var=>parameters)
     result=@connection.sysmap.addlinktrigger(parameters)
     {:class=>:map, :result=>result}
   end
