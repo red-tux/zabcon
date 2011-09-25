@@ -25,6 +25,7 @@
 #++
 
 require 'singleton'
+require 'libs/lexer'
 require 'libs/zdebug'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
@@ -118,41 +119,52 @@ class ZabconExecuteContainer
     @printing=true
     commandlist=CommandList.instance
 
-    split_str=usr_str.split2(:split_char=>'=|\s', :include_split=>true)
+    tokens=Tokenizer.new(usr_str)
 
-    unravel=false  #remove any extra space before the first =
-    split_str2=split_str.map {|item|
-      if unravel
-        item
-      elsif item=="="
-        unravel=true
-        item
-      elsif item.empty?
-        nil
-      elsif item.scan(/\s/).empty?
-        item
-      else
-        nil
-      end
-    }.delete_if {|i| i.nil?}
-
-    if !split_str2[1].nil? && split_str2[1]=='='
-      split_str=split_str2  #use the trimmed version
-      var_name=split_str[0].strip
-      raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
-
+    #split_str=usr_str.split2(:split_char=>'=|\s', :include_split=>true)
+    #
+    #unravel=false  #remove any extra space before the first =
+    #split_str2=split_str.map {|item|
+    #  if unravel
+    #    item
+    #  elsif item=="="
+    #    unravel=true
+    #    item
+    #  elsif item.empty?
+    #    nil
+    #  elsif item.scan(/\s/).empty?
+    #    item
+    #  else
+    #    nil
+    #  end
+    #}.delete_if {|i| i.nil?}
+    #
+    #if !split_str2[1].nil? && split_str2[1]=='='
+    #  split_str=split_str2  #use the trimmed version
+    #  var_name=split_str[0].strip
+    #  raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
+    #
+    #  debug(5,:var=>var_name,:msg=>"Creating Variable assignment")
+    #  add(ZabconExecuteVariable.new(var_name))
+    #
+    #  usr_str=split_str[2..split_str.length-1].join.strip
+    #  debug(5,:var=>usr_str,:msg=>"Continuging to parse with")
+    #end
+    #
+    #debug(6,:var=>split_str,:msg=>"Split Str")
+    #debug(6,:var=>split_str2,:msg=>"Split Str2")
+    #debug(6,:var=>usr_str,:msg=>"User Str")
+    pos=tokens.walk(0)
+    if (positions=tokens.assignment?(pos,:return_pos=>true))
+      var_name = tokens[positions[0]].value
       debug(5,:var=>var_name,:msg=>"Creating Variable assignment")
       add(ZabconExecuteVariable.new(var_name))
-
-      usr_str=split_str[2..split_str.length-1].join.strip
-      debug(5,:var=>usr_str,:msg=>"Continuging to parse with")
+      tokens=tokens.drop(positions[2]+1)
     end
 
-    debug(6,:var=>split_str,:msg=>"Split Str")
-    debug(6,:var=>split_str2,:msg=>"Split Str2")
-    debug(6,:var=>usr_str,:msg=>"User Str")
-
-    cmd=commandlist.find_and_parse(usr_str)
+    cmd_str=tokens.map{|i| i.value}.join
+    debug(5,:msg=>"Command String",:var=>cmd_str)
+    cmd=commandlist.find_and_parse(cmd_str)
     add(ZabconExecuteCommand.new(cmd))
 
   end
@@ -162,7 +174,9 @@ class ZabconExecuteContainer
   end
 
   def add(obj)
-    raise "Expected ZabconExecuteCommand Class" if obj.class!=ZabconExecuteCommand
+    raise "Expected ZabconExecuteCommand Class" if
+        obj.class!=ZabconExecuteCommand &&
+        obj.class!=ZabconExecuteVariable
     @commands<<obj
     if obj.class==ZabconExecuteCommand
       @printing=@printing & obj.print?
@@ -471,26 +485,41 @@ class CommandList
   end
 
   def find_and_parse(str)
-    str_array=str.split2(:include_split=>true)
-    str_items=str_array.length
+
+    tokens=Tokenizer.new(str)
+    token_items=tokens.length
 
     cur_node=@cmd_tree
-    count=0
+    pos=tokens.walk(0)
 
-    str_array.each do |item|
-      if item.empty? || !item.scan(/^\s*$/).empty?
-        count+=1
-      else
-        break if cur_node[item].nil?
-        count+=1
-        cur_node=cur_node[item]
-      end
+    while !tokens.end?(pos)
+      item=tokens[pos].value
+      break if cur_node[item].nil?
+      cur_node=cur_node[item]
+      pos=tokens.walk(pos+1)
     end
+
+    #tokens.each do |item|
+    #  if item.empty? || !item.scan(/^\s*$/).empty?
+    #    count+=1
+    #  else
+    #    break if cur_node[item].nil?
+    #    count+=1
+    #    cur_node=cur_node[item]
+    #  end
+    #end
 
     raise InvalidCommand.new(str) if cur_node.nil? || !cur_node[:node]
 
     cmd=cur_node[:node]
-    params=str_array[count..str_array.length].join.strip
+    #params=str_array[count..str_array.length].join.strip
+
+    debug(6,:msg=>"Tokens", :var=>tokens)
+    debug(6,:msg=>"Pos", :var=>pos)
+    debug(6,:msg=>"Parsed", :var=>tokens.parse)
+    params = tokens.drop(pos+1).join
+
+    debug(6,:msg=>"Parameters", :var=>params)
 
     Cmd.new(cmd,params)
   end

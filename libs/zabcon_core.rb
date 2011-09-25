@@ -199,6 +199,9 @@ class ZabconCore
     rescue ZbxAPI_ExceptionVersion => e
       puts e
       retry  # We will allow for graceful recover from Version exceptions
+    rescue ZbxAPI_ExceptionBadAuth => e
+      puts e.message
+      retry
     rescue ZbxAPI_ExceptionLoginPermission
       puts "No login permissions"
       retry
