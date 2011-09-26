@@ -22,7 +22,7 @@
 ##########################################
 
 require 'rubygems'
-require 'rake/gempackagetask'
+require 'rubygems/package_task'
 
 $rev = %x[svn -R info * 2>&1 | grep Revis | cut -f2 -d" "|sort -ur|head -1].chop.to_i
 
@@ -37,7 +37,7 @@ spec = Gem::Specification.new do |s|
   s.description = %q{Zabcon is a command line interface for Zabbix written in Ruby}
   s.licenses = "GPL 2.0"
   s.requirements = "Requires zbxapi, parseconfig and highline"
-  s.add_dependency("zbxapi", '>=0.1.315')
+  s.add_dependency("zbxapi", '>=0.1.324')
   s.add_dependency("parseconfig")
   s.add_dependency("highline")
   s.required_ruby_version = '>=1.8.6'
@@ -46,11 +46,11 @@ spec = Gem::Specification.new do |s|
     ["zabcon.rb", "zabcon.conf.default", "README",
      "libs/argument_processor.rb", "libs/revision.rb",
      "libs/command_help.rb", "libs/command_tree.rb",
-     "libs/help.xml", "libs/input.rb", "libs/printer.rb",
-     "libs/zabcon_commands.rb",
-      "libs/zabcon_core.rb","libs/zabcon_exceptions.rb",
-      "libs/zabcon_globals.rb", "libs/zabbix_server.rb",
-      "libs/utility_items.rb"]
+     "libs/help.xml", "libs/input.rb", "libs/lexer.rb",
+     "libs/printer.rb", "libs/zabcon_commands.rb",
+     "libs/zabcon_core.rb","libs/zabcon_exceptions.rb",
+     "libs/zabcon_globals.rb", "libs/zabbix_server.rb",
+     "libs/utility_items.rb"]
   s.bindir = "."
   s.executables << "zabcon.rb"
   s.default_executable="zabcon"
@@ -78,7 +78,7 @@ task :test => [:update_revision, :checkout_zbxapi]
 
 task :default => [:update_revision, :package]
 
-Rake::GemPackageTask.new(spec) do |pkg|
+Gem::PackageTask.new(spec) do |pkg|
   pkg.package_dir = "gems"
 #  pkg.version = "0.1.#{$rev}"
 end
