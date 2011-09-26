@@ -34,7 +34,7 @@ require "zbxapi/zdebug"
 #This is a wrapper class for creating a generalized lexer.
 class Lexr
 
-  class NoLexerError < RuntimeError
+  class NoLexerError < ZError
   end
 
 	def self.setup(&block)
@@ -51,11 +51,37 @@ class Lexr
   end
 
   def parse
-    retval=[]
+    tokens=[]
     until self.end?
-      retval << self.next
+      tokens << self.next
     end
-    retval
+
+    join_escape(tokens)
+  end
+
+  def join_escape(tokens)
+    tmp=[]
+    escapes=0
+    tokens=tokens.map do |i|
+      if i.kind==:escape
+        escapes+=1
+        tmp<<i.value
+        nil
+      elsif escapes>0 && i.kind!=:end
+        escapes=0
+        tmp<<i.value
+        token=Token.new(tmp.join.to_s,:escape)
+        tmp=[]
+        token
+      else
+        i
+      end
+    end.compact
+    if escapes>0
+      tokens[-1]=Token.new(tmp.join.to_s,:escape)
+      tokens<<Lexr::Token.end
+    end
+    tokens
   end
 
 	def next
@@ -278,6 +304,7 @@ ExpressionLexer = Lexr.setup {
   matches /[-+]?\d+/ => :number, :convert_with => lambda { |v| Integer(v) }
   matches "=" => :equals
   matches "\"" => :umatched_quote, :raises=> "Unmatched quote"
+  matches /#.*$/ => :comment
   default /[^\s^\\^"^\(^\)^\{^\}^\[^\]^,^=]+/ => :word
 }
 
@@ -332,6 +359,13 @@ class Tokenizer < Array
     end
   end
 
+  class EscapeEnd < InvalidCharacter
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Cannot escape the end of a string"
+    end
+  end
+
   def initialize(str)
     super()
     debug(8,:msg=>"Initial String",:var=>str.inspect)
@@ -343,7 +377,8 @@ class Tokenizer < Array
 
   def parse(args={})
     pos=args[:pos] || 0
-    pos,tmp=unravel(pos)
+    args.delete(:pos)
+    pos,tmp=unravel(pos,args)
     if tmp.length==1 && tmp[0].class==Array
       tmp[0]
     else
@@ -367,6 +402,7 @@ class Tokenizer < Array
     return :whitespace if of_type?(pos,:whitespace)
     return :comma if of_type?(pos,:comma)
     return :escape if of_type?(pos,:escape)
+    return :comment if of_type?(pos,:comment)
     return :paren if of_type?(pos,:paren)
     return :close if close?(pos)
     return :hash if hash?(pos)
@@ -586,59 +622,55 @@ class Tokenizer < Array
   end
 
   def get_escape(pos,args={})
-    keep_initial=args[:keep_initial] || false
+    keep_initial=args[:keep_escape] || false
+    debug(8,:msg=>"(#{self[pos].value.inspect}).length => #{self[pos].value.length}")
+    invalid_character(pos, :error=>EscapeEnd) if self[pos].value.length==1 && end?(pos+1)
 
-    invalid_character(pos,:msg=>"Escape characters cannot be last") if end?(pos+1)
-    pos+=1 if !keep_initial #gobble the first escape char
-    retval=[]
-    while !end?(pos) && self[pos].kind==:escape
-      retval<<self[pos].value
-      pos+=1
-    end
-    invalid_character "Unexpected End of String during escape" if end?(pos)
-    retval<<self[pos].value
-    pos+=1
-    return pos,retval.flatten.join
+    return pos+1,self[pos].value if keep_initial
+    return pos+1,self[pos].value[1..self[pos].value.length]
   end
 
   class Status
-    attr_accessor :close, :nothing_seen, :delim
-    attr_accessor :have_delim, :have_item, :item_seen, :delim_seen
 
     def initialize(pos,tokenizer,args={})
-      super()
-      @tokenizer=tokenizer
-      @start_pos=pos
-      @close=args[:close] || nil
-      @item_seen=args[:preload].nil?
+      @named_vars=[:close, :nothing_seen, :delim, :have_delim, :have_item,
+                   :item_seen, :delim_seen]
 
-      @have_item = @have_delim =  @delim_seen = false
+      @tokenizer=tokenizer
+
+      @stat_hash={}
+      @named_vars.each {|i| @stat_hash[i]=nil}  #preload for debugging
+      self.have_item = self.have_delim =  self.delim_seen = false
+      @stat_hash.merge!(args) #args overwrites @stat_hash where keys are equal
+
+      self.item_seen=@stat_hash[:preload].nil?
 
       #If we expect to find a closing element, the delimiter will be a comma
       #Otherwise we'll discover it later
-      if args[:delim].nil?
-        @delim=close.nil? ? nil : :comma
-      else
-        @delim=args[:delim]
-      end
+      self.delim=:comma if self.delim.nil? && !self.close.nil?
 
-      #self[:have_item]=false
-      #self[:have_delim]=false
-      #self[:nothing_seen]=true
-      @stat_hash={}
-      @stat_hash[:skip_until_close]=args[:skip_until_close]==true || false
+      self.skip_until_close=self.skip_until_close==true || false #enforce boolean result
     end
 
-    def inspect
-      str="#<#{self.class}:0x#{self.__id__.to_s(16)} "
-      arr=[]
+    def args
+      hash={}
       vars=instance_variables
       vars.delete("@tokenizer")
       vars.delete("@stat_hash")
-      vars.each{|i| arr<<"#{i}=#{instance_variable_get(i).inspect}" }
-      @stat_hash.each_pair{ |k,v| arr<<"@#{k.to_s}=#{v.inspect}" }
-      str+=arr.join(", ")+">"
-      str
+      vars.delete("@named_vars")
+      vars.each do |i|
+        hash.merge!(i.split("@")[-1].to_sym=>instance_variable_get(i))
+      end
+      hash.merge!(@stat_hash)
+    end
+
+    def merge(other_hash)
+      raise ZError.new("Hash Value required",:retry=>false) if other_hash.class!=Hash
+      args.merge(other_hash)
+    end
+
+    def inspect
+      "#<#{self.class}:0x#{self.__id__.to_s(16)} " + args.inspect + ">"
     end
 
     def []=(key,value)
@@ -650,48 +682,51 @@ class Tokenizer < Array
     end
 
     def method_missing(sym,*args)
-      have_key=@stat_hash.has_key?(sym)
-      if have_key && args.empty?
-        return @stat_hash[sym]
-      elsif have_key && !args.empty?
-        str=sym.to_s
-        if str[str.length-1..str.length]=="="
-          str.chop!
-          @stat_hash[str.intern]=args
-          return args
-        end
+      key=sym.to_s.split("=")[0].intern
+      have_equal=(key.to_s!=sym.to_s)
+      val=@stat_hash[key]
+      return val if val && !have_equal && args.empty?
+
+      if have_equal
+        @stat_hash[key]=*args
+        return *args
       end
 
-      super(sym,args)
+      #just to be sure let's kick this to the super class, otherwise return nil
+      begin
+        return super(sym,args)
+      rescue NoMethodError
+        return nil
+      end
     end
 
     def item(pos)
       #set the delimiter to whitespace if we've never seen a delimiter but have an item
-      if @delim.nil? && @have_item && !@delim_seen
-        @delim=:whitespace
-        @delim_seen=true
+      if self.delim.nil? && self.have_item && !self.delim_seen
+        self.delim=:whitespace
+        self.delim_seen=true
       end
 
       @tokenizer.invalid_character(pos, :error=>DelimiterExpected) if
-          @have_item && @delim!=:whitespace && !@tokenizer.of_type?(pos,[:open,:close])
-      @item_seen=true
-      @have_item=true
-      @have_delim=false
+          self.have_item && self.delim!=:whitespace && !@tokenizer.of_type?(pos,[:open,:close])
+      self.item_seen=true
+      self.have_item=true
+      self.have_delim=false
     end
 
     def delimiter(pos)
       if @tokenizer.of_type?(pos,:comma)
-        @tokenizer.invalid_character(pos,:error=>WhitespaceExpected) if @delim==:whitespace
-        @tokenizer.invalid_character(pos,:error=>ItemExpected) if @delim==:comma and @have_delim
+        @tokenizer.invalid_character(pos,:error=>WhitespaceExpected) if self.delim==:whitespace
+        @tokenizer.invalid_character(pos,:error=>ItemExpected) if self.delim==:comma and self.have_delim
       elsif @tokenizer.of_type?(pos,:whitespace)
-        @delim=:whitespace if @delim.nil? && @seen_item
+        self.delim=:whitespace if self.delim.nil? && self.seen_item
       else
         @tokenizer.invalid_character(pos)
       end
 
-      @delim_seen=true
-      @have_item=false
-      @have_delim=true
+      self.delim_seen=true
+      self.have_item=false
+      self.have_delim=true
     end
 
   end
@@ -725,13 +760,6 @@ class Tokenizer < Array
 
         invalid_character(pos,:error=>UnexpectedClose) if close?(pos) && status.close.nil?
 
-        if of_type?(pos,:escape)
-          debug(8,:msg=>"escape",:var=>[pos,self[pos]])
-          pos,result=get_escape(pos)
-          retval<<result
-          next
-        end
-
         if status.skip_until_close
           debug(8,:msg=>"skip_until_close",:var=>[pos,self[pos]])
           retval<<self[pos].value
@@ -741,9 +769,13 @@ class Tokenizer < Array
         end
 
         case what_is?(pos)
+          when :comment
+            return pos,retval if !status.keep_comment
+            retval<<self[pos].value
+            return pos,retval
           when :escape
             status.item(pos)
-            pos,result=get_escape(pos)
+            pos,result=get_escape(pos,status.args)
             retval<<result
           when :paren
             status.item(pos)

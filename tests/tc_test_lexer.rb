@@ -110,6 +110,185 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
     end
 
     assert_equal(["test", [{"a"=>1}, "bla", {"b"=>{"c"=>2}}]],result,out.string)
+  end
+
+  def test_05_escaped_string_1
+    result=nil
+
+    test_str="\\test \\\\test2"
+
+    set_debug_level(8)
+    out = capture_stdout do
+      tokens=Tokenizer.new(test_str)
+      result=tokens.parse
+    end
+
+    assert_equal(["test","\\test2"],result,out.string)
+  end
+
+  def test_05_escaped_string_2
+    result=nil
+
+    test_str="\\\\ \\ "
+
+    set_debug_level(8)
+    out = capture_stdout do
+      tokens=Tokenizer.new(test_str)
+      result=tokens.parse(:keep_escape=>true)
+    end
+
+    assert_equal(["\\\\ ","\\ "],result,out.string)
+  end
+
+  def test_05_escaped_string_3
+    result=nil
+
+    test_str=" \\"
+
+    set_debug_level(8)
+    out = capture_stdout do
+      result= assert_raise(Tokenizer::EscapeEnd){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+      }
+    end
+  end
+
+  def test_05_commented_string_1
+    result=nil
+
+    test_str="This is a test #comment bla bla bla"
+
+    set_debug_level(8)
+    out = capture_stdout do
+#      result= assert_raise(Tokenizer::EscapeEnd){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+#      }
+    end
+
+    assert_equal(["This", "is", "a", "test"],result,out.string)
+  end
+
+  def test_05_commented_string_2
+    result=nil
+
+    test_str="1,2,3 #comment bla bla bla"
+
+    set_debug_level(8)
+    out = capture_stdout do
+#      result= assert_raise(Tokenizer::EscapeEnd){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+#      }
+    end
+
+    assert_equal([1,2,3],result,out.string)
+
+  end
+
+  def test_05_commented_string_3
+    result=nil
+
+    test_str="1,2,3 { #comment bla bla bla"
+
+    set_debug_level(8)
+    out = capture_stdout do
+      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+      }
+    end
+
+    assert_equal(8,result.position,out.string)
+
+  end
+
+  def test_05_hash_string_1
+    result=nil
+
+    test_str="1=2"
+
+    set_debug_level(8)
+    out = capture_stdout do
+#      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+#      }
+    end
+
+    assert_equal([{1=>2}],result,out.string)
+
+  end
+
+  def test_05_hash_string_2
+    result=nil
+
+    test_str="1=2 2=3 4=5,6=7"
+
+    set_debug_level(8)
+    out = capture_stdout do
+#      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+#      }
+    end
+
+    assert_equal([{1=>2}, {2=>3}, [{4=>5}, {6=>7}]],result,out.string)
+
+  end
+
+  def test_05_hash_string_3
+    result=nil
+
+    test_str="1= { 2= 3, 4=5,6=7}"
+
+    set_debug_level(8)
+    out = capture_stdout do
+#      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+#      }
+    end
+
+    assert_equal([{1=>{6=>7, 2=>3, 4=>5}}],result,out.string)
+
+  end
+
+  def test_05_hash_string_4
+    result=nil
+
+    test_str="1={ 2=3 4=5,6=7}"
+
+    set_debug_level(8)
+    out = capture_stdout do
+      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+      }
+    end
+
+    assert_equal(8,result.position,out.string)
+    assert_equal(4,result.invalid_char,out.string)
+
+  end
+
+
+  def test_05_hash_string_5
+    result=nil
+
+    test_str="1={2=3, { 4=5,6=7}"
+
+    set_debug_level(8)
+    out = capture_stdout do
+      result= assert_raise(Tokenizer::InvalidCharacter){
+        tokens=Tokenizer.new(test_str)
+        result=tokens.parse(:keep_escape=>true)
+      }
+    end
+
+    assert_equal(8,result.position,out.string)
+    assert_equal("{",result.invalid_char,out.string)
 
   end
 
