@@ -90,7 +90,7 @@ require 'libs/revision'
 require 'optparse'
 require 'ostruct'
 require 'strscan'
-require 'libs/zdebug'
+require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
 
 if RUBY_VERSION=="1.8.6"  #Ruby 1.8.6 lacks the each_char function in the string object, so we add it here

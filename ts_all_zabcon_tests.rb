@@ -1,4 +1,6 @@
-#License:: GPL 2.0  http://www.gnu.org/licenses/gpl-2.0.html
+#!/usr/bin/ruby
+
+##License:: GPL 2.0  http://www.gnu.org/licenses/gpl-2.0.html
 #Copyright:: Copyright (C) 2009,2010 Andrew Nelson nelsonab(at)red-tux(dot)net
 #
 #This program is free software; you can redistribute it and/or
@@ -17,25 +19,24 @@
 
 ##########################################
 # Subversion information
-# $Id: $
-# $Revision: $
+# $Id$
+# $Revision$
 ##########################################
 
-#
-#Remove this note section when using in a normal file
-#
-# This is a skeleton file, use this file to create any new files.
-# This file has the default GNU header and copyright, SVN tags
-# and default lib file path creation helper.
-#
-# To use copy this file to the desired new file name
-# Add the file to svn (svn add <filename>
-# Set the properties for svn:
-#  svn propset svn:keywords Id <filename>
-#  svn propset svn:keywords Revision <filename>
-#
-#Remove this note section when using in a normal file
-#
+$: << File.expand_path(File.join(File.dirname(__FILE__), '..'))
+
+#import variables which describe our local test environment
+#require "ts_local_vars"
+
+require "test/unit"
+require "tests/tc_test_lexer"
 
 
-require "zbxapi/zdebug"
+class TS_All_Tests
+   def self.suite
+     suite = Test::Unit::TestSuite.new
+     suite << TC_Test_00_Lexerr
+     return suite
+   end
+ end
+# Test::Unit::UI::Console::TestRunner.run(TS_MyTests)

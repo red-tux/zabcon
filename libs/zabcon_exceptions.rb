@@ -18,8 +18,8 @@
 
 ##########################################
 # Subversion information
-# $Id: zabcon_exceptions.rb 258 2010-12-28 22:49:21Z nelsonab $
-# $Revision: 258 $
+# $Id$
+# $Revision$
 ##########################################
 
 #------------------------------------------------------------------------------
@@ -30,8 +30,8 @@
 #
 #------------------------------------------------------------------------------
 
-require 'libs/zdebug'
-require 'libs/exceptions'
+require 'zbxapi/zdebug'
+require 'zbxapi/exceptions'
 
 #---------------------------------------------------------
 #These general exceptions are only used internally and are

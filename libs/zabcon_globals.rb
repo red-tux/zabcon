@@ -30,7 +30,7 @@
 #
 #------------------------------------------------------------------------------
 
-require 'libs/zdebug'
+require 'zbxapi/zdebug'
 
 require 'singleton'
 require 'parseconfig'

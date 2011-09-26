@@ -21,7 +21,7 @@
 # $Revision$
 ##########################################
 
-require "libs/zdebug"
+require "zbxapi/zdebug"
 
 
 ZabconCommand.add_command "exit" do

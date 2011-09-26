@@ -23,7 +23,7 @@
 # $Revision$
 ##########################################
 
-require 'libs/zdebug'
+require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
 
 if RUBY_PLATFORM =~ /.*?mswin.*?/

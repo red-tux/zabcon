@@ -23,7 +23,7 @@
 ##########################################
 
 require 'zbxapi'
-require 'libs/zdebug'
+require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
 require 'libs/command_tree'
 

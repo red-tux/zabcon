@@ -28,7 +28,8 @@
 #The origional source for his work can be found here:
 # https://github.com/michaelbaldry/lexr
 
-require "libs/zdebug"
+require 'zbxapi/exceptions'
+require "zbxapi/zdebug"
 
 #This is a wrapper class for creating a generalized lexer.
 class Lexr
@@ -146,7 +147,7 @@ class Lexr
     end
 
     def counter(symbol)
-      puts @counter[symbol]
+      @counter[symbol]
     end
 
     def scan(text)
@@ -280,20 +281,69 @@ ExpressionLexer = Lexr.setup {
   default /[^\s^\\^"^\(^\)^\{^\}^\[^\]^,^=]+/ => :word
 }
 
-
-
 class Tokenizer < Array
+  include ZDebug
+
+  class InvalidCharacter <ZError
+    attr_accessor :invalid_char, :invalid_str, :position
+
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Invalid Character"
+      @position=params[:position] || nil
+      @invalid_char=params[:invalid_char] || nil
+      @invalid_str=params[:invalid_str] || raise(RuntimeError.new(":invalid_str required",:retry=>false))
+    end
+
+    def show_message
+      preamble="#{@message}  \"#{@invalid_char}\" : "
+      pointer="^".rjust(@position+preamble.length+1)
+      puts preamble+@invalid_str
+      puts pointer
+    end
+
+  end
+
+  class UnexpectedClose < InvalidCharacter
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Invalid Character"
+    end
+  end
+
+  class DelimiterExpected < InvalidCharacter
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Delimiter expected"
+    end
+  end
+
+  class ItemExpected < InvalidCharacter
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Item expected"
+    end
+  end
+
+  class WhitespaceExpected < InvalidCharacter
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Whitespace expected"
+    end
+  end
 
   def initialize(str)
     super()
+    debug(8,:msg=>"Initial String",:var=>str.inspect)
     replace(str.lexer_parse(ExpressionLexer))
+    debug(8,:msg=>"Tokens",:var=>self)
+    debug(8,:msg=>"Tokens(Length)",:var=>length)
     @available_tokens=ExpressionLexer.available_tokens
   end
 
   def parse(args={})
     pos=args[:pos] || 0
     pos,tmp=unravel(pos)
-    p tmp
     if tmp.length==1 && tmp[0].class==Array
       tmp[0]
     else
@@ -321,7 +371,7 @@ class Tokenizer < Array
     return :close if close?(pos)
     return :hash if hash?(pos)
     return :array if array?(pos)
-    return :simple_array if simple_array?(pos)
+#    return :simple_array if simple_array?(pos)
     return :assignment if assignment?(pos)
     :other
   end
@@ -460,33 +510,25 @@ class Tokenizer < Array
     open?(pos,:hash)
   end
 
-  private
-
   def invalid_character(pos, args={})
-    msg=args[:msg] || "Invalid character found"
+    msg=args[:msg] || nil
     end_pos=args[:end_pos] || pos
+    error_class=args[:error] || InvalidCharacter
+    if !error_class.class_of?(ZError)
+      raise ZError.new("\"#{error_class.inspect}\" is not a valid class.  :error must be of class ZError or a descendant.", :retry=>false)
+    end
+    retry_var=args[:retry] || true
 
-    base_msg=msg
-    #if $DEBUG
-    #  caller[0]=~/(.*):(\d+):.*`(.*?)'/
-    #
-    #  debug_line=$2.nil? ? "" : $2
-    #  debug_func=$3.nil? ? "" : $3
-    #  base_msg = "#{$3}-#{$2} "+ msg
-    #else
-    #  base_msg=msg
-    #end
+    debug(5,:msg=>"Invalid_Character (function/line num is caller)",:stack_pos=>1,:trace_depth=>4)
 
-    debug(5,:msg=>"Invalid_Character called by",:stack_pos=>1)
-
-    base_msg+=": \"#{self[0..pos-1].map{|i| i.value}.join if pos>0}\""
-    pointer_msg="^".rjust(base_msg.length)
-    base_msg=base_msg.chop+self[pos..end_pos].map{|i| i.value}.join+"\""
-    puts base_msg
-    puts pointer_msg
-    raise "#{base_msg} : \"#{self[pos].value}\""
+    invalid_str=self[0..pos-1].join || ""
+    position=invalid_str.length
+    invalid_str+=self[pos..self.length-1].join if !invalid_str.empty?
+    invalid_char=self[pos].value
+    raise error_class.new(msg, :invalid_str=>invalid_str,:position=>position,:invalid_char=>invalid_char, :retry=>retry_var)
   end
 
+  private
 
   def get_close(pos)
     case self[pos].kind
@@ -543,9 +585,11 @@ class Tokenizer < Array
     return pos, retval
   end
 
-  def get_escape(pos)
+  def get_escape(pos,args={})
+    keep_initial=args[:keep_initial] || false
+
     invalid_character(pos,:msg=>"Escape characters cannot be last") if end?(pos+1)
-    pos+=1 #gobble the first escape char
+    pos+=1 if !keep_initial #gobble the first escape char
     retval=[]
     while !end?(pos) && self[pos].kind==:escape
       retval<<self[pos].value
@@ -557,106 +601,230 @@ class Tokenizer < Array
     return pos,retval.flatten.join
   end
 
+  class Status
+    attr_accessor :close, :nothing_seen, :delim
+    attr_accessor :have_delim, :have_item, :item_seen, :delim_seen
+
+    def initialize(pos,tokenizer,args={})
+      super()
+      @tokenizer=tokenizer
+      @start_pos=pos
+      @close=args[:close] || nil
+      @item_seen=args[:preload].nil?
+
+      @have_item = @have_delim =  @delim_seen = false
+
+      #If we expect to find a closing element, the delimiter will be a comma
+      #Otherwise we'll discover it later
+      if args[:delim].nil?
+        @delim=close.nil? ? nil : :comma
+      else
+        @delim=args[:delim]
+      end
+
+      #self[:have_item]=false
+      #self[:have_delim]=false
+      #self[:nothing_seen]=true
+      @stat_hash={}
+      @stat_hash[:skip_until_close]=args[:skip_until_close]==true || false
+    end
+
+    def inspect
+      str="#<#{self.class}:0x#{self.__id__.to_s(16)} "
+      arr=[]
+      vars=instance_variables
+      vars.delete("@tokenizer")
+      vars.delete("@stat_hash")
+      vars.each{|i| arr<<"#{i}=#{instance_variable_get(i).inspect}" }
+      @stat_hash.each_pair{ |k,v| arr<<"@#{k.to_s}=#{v.inspect}" }
+      str+=arr.join(", ")+">"
+      str
+    end
+
+    def []=(key,value)
+      @stat_hash[key]=value
+    end
+
+    def [](key)
+      @stat_hash[key]
+    end
+
+    def method_missing(sym,*args)
+      have_key=@stat_hash.has_key?(sym)
+      if have_key && args.empty?
+        return @stat_hash[sym]
+      elsif have_key && !args.empty?
+        str=sym.to_s
+        if str[str.length-1..str.length]=="="
+          str.chop!
+          @stat_hash[str.intern]=args
+          return args
+        end
+      end
+
+      super(sym,args)
+    end
+
+    def item(pos)
+      #set the delimiter to whitespace if we've never seen a delimiter but have an item
+      if @delim.nil? && @have_item && !@delim_seen
+        @delim=:whitespace
+        @delim_seen=true
+      end
+
+      @tokenizer.invalid_character(pos, :error=>DelimiterExpected) if
+          @have_item && @delim!=:whitespace && !@tokenizer.of_type?(pos,[:open,:close])
+      @item_seen=true
+      @have_item=true
+      @have_delim=false
+    end
+
+    def delimiter(pos)
+      if @tokenizer.of_type?(pos,:comma)
+        @tokenizer.invalid_character(pos,:error=>WhitespaceExpected) if @delim==:whitespace
+        @tokenizer.invalid_character(pos,:error=>ItemExpected) if @delim==:comma and @have_delim
+      elsif @tokenizer.of_type?(pos,:whitespace)
+        @delim=:whitespace if @delim.nil? && @seen_item
+      else
+        @tokenizer.invalid_character(pos)
+      end
+
+      @delim_seen=true
+      @have_item=false
+      @have_delim=true
+    end
+
+  end
+
   def unravel(pos,args={})
-    close=args[:close] || nil
+    status=Status.new(pos,self,args)
+    status[:start_pos]=pos
+
     if args[:preload]
       retval = []
       retval<<args[:preload]
     else
       retval=[]
     end
-    skip_until_close=args[:skip_until_close]==true || false
 
-    raise "Close cannot be nil if skip_until_close" if skip_until_close && close.nil?
+    raise "Close cannot be nil if skip_until_close" if status.skip_until_close && status.close.nil?
 
-    start_pos=pos
-    delim=close.nil? ? nil : :comma
+    debug(8,:msg=>"Unravel",:var=>[status,pos])
+
     invalid_tokens=[]
-    invalid_tokens<<:whitespace if !close.nil? && !([:r_curly,:r_paren,:r_square] & [close]).empty?
-    have_item=false
+    invalid_tokens<<:whitespace if !status.close.nil? && !([:r_curly,:r_paren,:r_square] & [status.close]).empty?
 
     pos=walk(pos) #skip whitespace
     invalid_character(pos) if invalid?(pos,[:comma]) || close?(pos) #String cannot start with a comma or bracket close
 
-    while !end?(pos,:close=>close)
+    while !end?(pos,:close=>status.close)
+      begin
+        debug(8,:msg=>"Unravel-while",:var=>[pos,self[pos]])
+        debug(8,:msg=>"Unravel-while",:var=>[status,status.have_item,status.close])
+        debug(8,:msg=>"Unravel-while",:var=>retval)
 
-      invalid_character(pos, :msg=>"Unexpected Close") if close?(pos) && close.nil?
+        invalid_character(pos,:error=>UnexpectedClose) if close?(pos) && status.close.nil?
 
-      if of_type?(pos,:escape)
-        pos,result=get_escape(pos)
-        retval<<result
-        next
-      end
-
-      if skip_until_close
-        retval<<self[pos].value
-        pos+=1
-        pos=walk(pos)
-        next
-      end
-
-      case what_is?(pos)
-        when :escape
+        if of_type?(pos,:escape)
+          debug(8,:msg=>"escape",:var=>[pos,self[pos]])
           pos,result=get_escape(pos)
           retval<<result
-        when :paren
-          pos,result=unravel(pos+1,:close=>get_close(pos),:skip_until_close=>true)
-          retval<<"("
-          result.each {|i| retval<<i }
-          retval<<")"
-          have_item=true
-        when :hash
-          pos,result=get_hash(pos)
-          retval<<result
-          have_item=true
-        when :array
-          pos,result=unravel(pos+1,:close=>get_close(pos))
-          retval<<result
-          have_item=true
-        when :simple_array
-          #if our delimiter is a comma then we've already detected the simple array
-          if delim==:comma
-            retval<<self[pos].value
-            pos+=1
-            have_item=true
-          else
-            pos,result=unravel(pos,:close=>:whitespace)
-            retval<<result
-            have_item=false
-          end
-        when :assignment
-          pos,result=get_assignment(pos)
-          retval<<result
-          have_item=true
-        when :comma
-          if delim!=:comma
-            last=retval.pop
-            pos+=1
-            pos,result=unravel(pos,:close=>:whitespace, :preload=>last)
-            retval<<result
-          end
-          have_item=false
-          pos+=1
-        when :whitespace
-          return pos, retval if have_item && close==:whitespace
-          pos+=1
-        when :close
-          invalid_character(pos,:msg=>"Unexpected close") if self[pos].kind!=close
-          pos+=1
-          return pos,retval
-        when :other
-          if have_item && close==:whitespace
-            return pos,retval
-          end
-          have_item=true
+          next
+        end
+
+        if status.skip_until_close
+          debug(8,:msg=>"skip_until_close",:var=>[pos,self[pos]])
           retval<<self[pos].value
           pos+=1
-        else #case what_is?(pos)
-          invalid_character(pos)
-      end #case what_is?(pos)
-      pos=walk(pos)  #walk whitespace ready for next round
+          pos=walk(pos)
+          next
+        end
+
+        case what_is?(pos)
+          when :escape
+            status.item(pos)
+            pos,result=get_escape(pos)
+            retval<<result
+          when :paren
+            status.item(pos)
+            pos,result=unravel(pos+1,:close=>get_close(pos),:skip_until_close=>true)
+            retval<<"("
+            result.each {|i| retval<<i }
+            retval<<")"
+          when :hash
+            debug(8,:msg=>"hash",:var=>[pos,self[pos]])
+            status.item(pos)
+            pos,result=get_hash(pos)
+            debug(8,:msg=>"hash-return",:var=>[pos,self[pos]])
+            retval<<result
+          when :array
+            status.item(pos)
+            pos,result=unravel(pos+1,:close=>get_close(pos))
+            retval<<result
+          #when :simple_array
+          #  #if our delimiter is a comma then we've already detected the simple array
+          #  if delim==:comma
+          #    retval<<self[pos].value
+          #    pos+=1
+          #    have_item=true
+          #  else
+          #    pos,result=unravel(pos,:close=>:whitespace)
+          #    retval<<result
+          #    have_item=false
+          #  end
+          when :assignment
+            status.item(pos)
+            debug(8,:msg=>"assignment",:var=>[pos,self[pos]])
+            pos,result=get_assignment(pos)
+            debug(8,:msg=>"assignment-return",:var=>[pos,self[pos]])
+            retval<<result
+            have_item=true
+          when :comma, :whitespace
+            begin
+              status.delimiter(pos)
+            rescue WhitespaceExpected
+              last=retval.pop
+              pos+=1
+              pos,result=unravel(pos,:close=>:whitespace, :preload=>last)
+              retval<<result
+            end
+            return pos, retval if status.have_item && status.close==:whitespace
+            pos+=1
+          when :close
+            invalid_character(pos,:error=>UnexpectedClose) if self[pos].kind!=status.close
+            pos+=1
+            return pos,retval
+          when :other
+            debug(8,:msg=>"Unravel-:other",:var=>[self[pos]])
+            status.item(pos)
+            #if status.have_item && status.close==:whitespace
+            #  return pos,retval
+            #end
+            retval<<self[pos].value
+            pos+=1
+          else #case what_is?(pos)
+            invalid_character(pos)
+        end #case what_is?(pos)
+        debug(8,:msg=>"walk",:var=>[pos,self[pos]])
+        pos=walk(pos)  #walk whitespace ready for next round
+        debug(8,:msg=>"walk-after",:var=>[pos,self[pos]])
+      rescue DelimiterExpected=>e
+        debug(8,:var=>caller.length)
+        debug(8,:var=>status)
+        debug(8,:var=>[pos,self[pos]])
+        if status.delim==:comma && status.have_item
+          debug(8)
+          return pos,retval
+        else
+          debug(8)
+          raise e
+        end
+        debug(8)
+      end
     end
+    invalid_character(pos) if status.have_delim && status.delim==:comma
     pos+=1
+    debug(8,:msg=>"Unravel-While-end",:var=>[have_item, status.delim])
 
     return pos, retval
   end

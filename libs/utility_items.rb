@@ -21,7 +21,7 @@
 # $Revision$
 ##########################################
 
-require "libs/zdebug"
+require "zbxapi/zdebug"
 
 Object.class_eval do
   def env

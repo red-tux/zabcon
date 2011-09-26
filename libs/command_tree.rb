@@ -26,7 +26,7 @@
 
 require 'singleton'
 require 'libs/lexer'
-require 'libs/zdebug'
+require 'zbxapi/zdebug'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
 require 'libs/argument_processor'

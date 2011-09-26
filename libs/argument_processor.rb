@@ -22,8 +22,8 @@
 # $Revision$
 ##########################################
 
-require 'libs/zdebug'
-require 'libs/exceptions'
+require 'zbxapi/zdebug'
+require 'zbxapi/exceptions'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
 require 'libs/command_tree'
