@@ -238,7 +238,7 @@ ZabconCommand.add_command "raw api" do
     server.connection.raw_api(api_func, params)
   end
 
-  arg_processor do |params,valid_args,flags|
+  arg_processor do |params,args,flags|
     parameter_error "Command \"raw api\" requires parameters" if params.empty?
     params=params.split2
     api_func=params[0]
@@ -403,9 +403,9 @@ ZabconCommand.add_command "get item" do
   set_method do |params|
     server.connection.item.get(params)
   end
-  set_valid_args ['itemids','hostids','groupids', 'triggerids','applicationids',
+  set_valid_args 'itemids','hostids','groupids', 'triggerids','applicationids',
                   'status','templated_items','editable','count','pattern','limit',
-                  'order', 'show']
+                  'order', 'show'
   default_show ["itemid", "key_", "description"]
   set_flag :login_required
   set_flag :print_output
@@ -514,13 +514,58 @@ ZabconCommand.add_command "update user" do
       @connection.user.update([parameters])
     end
   end
-  set_valid_args ['userid','name', 'surname', 'alias', 'passwd', 'url',
+  set_valid_args 'userid','name', 'surname', 'alias', 'passwd', 'url',
                   'autologin', 'autologout', 'lang', 'theme', 'refresh',
-                  'rows_per_page', 'type',]
+                  'rows_per_page', 'type'
   default_show ["itemid", "key_", "description"]
   set_flag :login_required
   set_flag :print_output
   set_help_tag :update_user
   result_type :user
+end
+
+###############################################################################
+#Special                                                               Special#
+###############################################################################
+
+
+#ZabconCommand.add_command "add host" do
+#  set_method do |params|
+#    result=server.connection.host.create(params)
+#    set_result_message "The following host was created: #{result['hostids']}"
+#    result
+#  end
+#  set_flag :login_required
+#  set_flag :print_output
+#  set_help_tag :add_host
+#  result_type :host
+#end
+
+ZabconCommand.add_command "clone host" do
+  set_method do |params|
+    source=params["source"]
+    target=server.connection.host.get({"output"=>"extend", "filter"=>{"host"=>[params["host"]]}})
+    if !target.empty?
+      raise Command::NonFatalError.new("host #{params["host"]} already exists with hostid #{target[0]["hostid"]}")
+    end
+    source_info=server.connection.host.get({"output"=>"extend", "selectParentTemplates"=>"refer", "filter"=>{"host"=>[source]}})
+    source_hostid=source_info[0]["hostid"]
+    templates=source_info[0]["parentTemplates"].map{|i| i["hostid"] }
+    groups=server.connection.hostgroup.get(
+        {"hostids"=>[source_hostid],
+         "output"=>"extend"}).map do |i| {"groupid"=>i["groupid"]}
+    end
+    result=server.connection.host.create({"host"=>params["host"],
+      "ip"=>params["ip"],"useip"=>params["useip"],"groups"=>groups,
+      "port"=>params["port"],
+      "templates"=>templates.map {|i| {"templateid"=>i}} })
+    result
+  end
+
+  required_args "host", ["ip","dns"], "useip", "port", "source"
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :clone_host
+  result_type :host
 end
 

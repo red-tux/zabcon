@@ -366,13 +366,21 @@ class Tokenizer < Array
     end
   end
 
-  def initialize(str)
+  attr_accessor :parsed
+  attr :items
+
+  #Takes a string str and and hash arguments and creates a Lexical token reference of str
+  #It will also parse the lexical tokens into an array of items.
+  #:keep_escape determines weather or not to keep all escape backslashes, default false
+  def initialize(str,args={})
     super()
     debug(8,:msg=>"Initial String",:var=>str.inspect)
     replace(str.lexer_parse(ExpressionLexer))
     debug(8,:msg=>"Tokens",:var=>self)
     debug(8,:msg=>"Tokens(Length)",:var=>length)
     @available_tokens=ExpressionLexer.available_tokens
+    @parsed=parse(args)
+    @items=@parsed.clone
   end
 
   def parse(args={})

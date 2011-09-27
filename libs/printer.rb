@@ -334,7 +334,7 @@ class OutputPrinter
 
   def print_hash(dataset,cols)
     puts "Hash object printing not implemented, here is the raw result"
-    p dataset.result
+    p dataset.data
   end
 
 

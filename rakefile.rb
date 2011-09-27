@@ -23,6 +23,8 @@
 
 require 'rubygems'
 require 'rubygems/package_task'
+require 'rake'
+require 'rake/rdoctask'
 
 $rev = %x[svn -R info * 2>&1 | grep Revis | cut -f2 -d" "|sort -ur|head -1].chop.to_i
 
@@ -76,9 +78,15 @@ end
 desc "Build dependencies to test Zabcon"
 task :test => [:update_revision, :checkout_zbxapi]
 
-task :default => [:update_revision, :package]
-
 Gem::PackageTask.new(spec) do |pkg|
   pkg.package_dir = "gems"
 #  pkg.version = "0.1.#{$rev}"
 end
+
+Rake::RDocTask.new do |rd|
+  #rd.main = "README.rdoc"
+  rd.rdoc_files.include("*.rb", "libs/*.rb")
+end
+
+task :default => [:update_revision, :package]
+

@@ -197,12 +197,15 @@ module ArgumentProcessor
   # The default processor also checks the incoming parameters against a list of valid arguments, and merges
   # the user variables with the inbound arguments with the inbound arguments taking precedence, raises an
   # exception if there is an error
+  # arg_info should be a hash containing two keys, :required_args, :valid_args
   # If :use_array_processor is passed as an option the array processor will be used
   # In :num_args is passed with a value, and error will be returned if more than that many args are passed
 
-  def default_processor(args,valid_args,*flags)
+  def default_processor(args,arg_info,flags={})
     args=args.strip  #remove preceding and trailing whitespace
-    flags=flags[0]
+    #valid_args=arg_info[:valid_args]
+    #required_args=arg_info[:required_args]
+    invalid_args=[]
 
     if flags[:not_empty]
       raise ParameterError.new("No arguments",:retry=>true) if args.empty?
@@ -215,30 +218,36 @@ module ArgumentProcessor
     else
       args=params_to_hash(args)
 
+      if !arg_info[:valid_args].empty?
+        args_keys=args.keys
 
-#      if !(invalid=check_parameters(args, valid_args)).empty?
-#        msg="Invalid parameters:\n"
-#        msg+=invalid.join(", ")
-#        raise ParameterError_Invalid.new(msg,:retry=>true, :help_func=>help_func)
-#      end
-#      args=substitute_vars(args)
+        invalid_args=args_keys-arg_info[:valid_args] if arg_info[:valid_args]
+        raise ParameterError.new("Invalid parameters: "+invalid_args.join(", "),
+                                 :retry=>true) if !invalid_args.empty?
 
+        required_args=arg_info[:required_args].reject{|i| i.class==Array }
+        required_or_args=arg_info[:required_args].reject{|i| i.class!=Array }
 
-#      valid_user_vars = {}
-#
-#      if !valid_args.nil?
-#        valid_args.each {|item|
-#          valid_user_vars[item]=user_vars[item] if !user_vars[item].nil?
-#        }
-#      end
-#      args = valid_user_vars.merge(args)
+        missing_args=[]
+        missing_args=required_args-args_keys
+
+        required_or_args.delete_if do |i|
+          count=i.length
+          missing_args<<i if (i-args_keys).count==count
+        end
+
+        if !missing_args.empty?
+          msg=missing_args.map do |i|
+            if i.class==Array
+              "(#{i.join(" | ")})"
+            else
+              i
+            end
+          end.join(", ")
+          raise ParameterError.new("Missing required arguments: #{msg}",:retry=>true)
+        end
+      end
     end
-
-#    if !num_args.nil?
-#      eval_exp="#{args.length}#{num_args}"
-#      raise ParameterError.new("Too many arguments (#{args.length})",:retry=>true, :help_func=>help_func) if !eval(eval_exp)
-#    end
-
     Command::Arguments.new(args, flags)
   end
 

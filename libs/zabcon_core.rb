@@ -187,6 +187,9 @@ class ZabconCore
     rescue CommandList::InvalidCommand => e
       puts e.message
       retry
+    rescue Command::NonFatalError => e
+      puts e.message
+      retry
     rescue Command::ParameterError => e
       puts e.message
       retry

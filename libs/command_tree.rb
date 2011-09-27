@@ -71,9 +71,10 @@ class ZabconExecuteCommand < ZabconExecuteBase
     @command_obj=cmd_obj.command_obj
     begin
       arg_result=@command_obj.call_arg_processor(cmd_obj.parameters)
-    rescue ParameterError => e
-      e.help_func=cmd_obj.command_obj.help_method
-      raise e
+    #TODO Fix showing help messages
+    #rescue ParameterError => e
+    #  e.help_func=cmd_obj.command_obj.help_method
+    #  raise e
     end
     @cmd_params=arg_result.cmd_params
     @show_params=arg_result.show_params
@@ -212,7 +213,8 @@ end
 #Command is the main class used to define commands in Zabcon which are then
 #inserted into the global singleton class CommandList
 class Command
-  attr_reader :str, :aliases, :argument_processor, :flags, :valid_args
+  attr_reader :str, :aliases, :argument_processor, :flags
+  attr_reader :required_args, :valid_args
   attr_reader :help_tag, :path
 
   include ArgumentProcessor
@@ -249,6 +251,9 @@ class Command
     end
   end
 
+  class NonFatalError < Exception
+  end
+
   class LoginRequired < Exception
   end
 
@@ -265,7 +270,7 @@ class Command
     raise "Path must be an array" if path.class!=Array
     @path=path
     @cmd_method=nil
-    @valid_args=[]
+    @valid_args=@required_args=[]
     @aliases=[]
     @flags={}
     @result_type=nil
@@ -310,9 +315,20 @@ class Command
     new_alias
   end
 
+  #Sets up a list of required arguments
+  #args is an array of items.  If there are multiple options
+  #which are optional but one of which is required, it shall
+  #be passed as a sub-array
+  #example, host, useip are required, but only one of dns and ip is required
+  #[host,useip,[dns,ip]]
+  def required_args(*args)
+    @required_args=args
+    @valid_args=@valid_args|args.flatten
+  end
+
   #accepts an array of valid arguments
-  def set_valid_args(args)
-    @valid_args=args
+  def set_valid_args(*args)
+    @valid_args=@valid_args|args
   end
 
   def default_show(cols)
@@ -358,7 +374,7 @@ class Command
     end
 
     @arguments=Arguments.new("",@flags)
-    result=@argument_processor.call(parameters,@valid_args,@flags)
+    result=@argument_processor.call(parameters,{:valid_args=>@valid_args,:required_args=>@required_args},@flags)
     return result if result.is_a?(Arguments)
     if !result.is_a?(String) && !result.is_a?(Hash) && !result.is_a?(Array)
       raise ("Arugment processor for \"#{command_name}\" returned invalid parameters: class: #{result.class}, #{result}")
