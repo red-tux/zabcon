@@ -239,6 +239,7 @@ ZabconCommand.add_command "raw api" do
   end
 
   arg_processor do |params,args,flags|
+    p [params,args,flags]
     parameter_error "Command \"raw api\" requires parameters" if params.empty?
     params=params.split2
     api_func=params[0]
@@ -274,17 +275,6 @@ ZabconCommand.add_command "raw json" do
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
-end
-
-ZabconCommand.add_command "test" do
-  set_method do |params|
-    test="one=[one two three four=4] two three four=five=six=seven"
-    p test
-    p params_to_hash2(test)
-  end
-#  set_flag :print_output
-  set_help_tag :print
-  result_type :none
 end
 
 ###############################################################################
@@ -348,6 +338,28 @@ ZabconCommand.add_command "get host" do
   set_help_tag :get_host
   result_type :host
 end
+
+ZabconCommand.add_command "update host" do
+  set_method do |params|
+    raise Command::NonFatalError.new("Update host requires a parameter to update.") if params.size<2
+
+    #TODO Add host.update to the zbxapi library
+    server.connection.raw_api("host.update",params)
+  end
+
+  set_valid_args 'hostid', 'proxy_hostid', 'host', 'dns', 'useip', 'ip',
+                 'port', 'status', 'useipmi', 'ipmi_port', 'ipmi_authtype',
+                 'ipmi_privilege', 'ipmi_username', 'ipmi_password',
+                 'ipmi_ip'
+  required_args "hostid"
+
+#  default_show ["itemid", "key_", "description"]
+  set_flag :login_required
+  set_flag :print_output
+  set_help_tag :update_user
+  result_type :host
+end
+
 
 ###############################################################################
 #Host Group                                                         Host Group#
