@@ -285,7 +285,7 @@ class OutputPrinter
             header=["groupid","name"]
           when :hostgroupid
             header=["name", "groupid", "internal"]
-          when :raw
+          when :raw_api
             header=results[0].keys
           when nil
             header=results[0].keys

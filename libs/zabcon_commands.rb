@@ -234,18 +234,19 @@ ZabconCommand.add_command "raw api" do
   set_method do |params|
     api_func=params[:method]
     params=params[:params]
-
     server.connection.raw_api(api_func, params)
   end
 
   arg_processor do |params,args,flags|
-    p [params,args,flags]
+    params=Tokenizer.new(params).parse
     parameter_error "Command \"raw api\" requires parameters" if params.empty?
-    params=params.split2
     api_func=params[0]
     params.delete_at(0)
-    retval= params_to_hash(params.join(" "))
-    {:method=>api_func, :params=>retval}
+    params2={}
+    params.each do |i|
+      params2.merge!(i)
+    end
+    {:method=>api_func, :params=>params2}
   end
   set_flag :login_required
   set_flag :print_output
