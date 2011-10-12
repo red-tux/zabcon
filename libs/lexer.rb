@@ -28,8 +28,9 @@
 #The origional source for his work can be found here:
 # https://github.com/michaelbaldry/lexr
 
-require 'zbxapi/exceptions'
-require "zbxapi/zdebug"
+require 'libs/zabcon_exceptions'
+#require 'zbxapi/exceptions'
+#require "zbxapi/zdebug"
 
 #This is a wrapper class for creating a generalized lexer.
 class Lexr
@@ -292,6 +293,7 @@ ExpressionLexer = Lexr.setup {
   matches /\\/ => :escape
   matches /\$[\w]+/ => :variable
   matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
+  matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
   matches "(" => :l_paren, :increment=>:paren
   matches ")" => :r_paren, :decrement=>:paren
   matches "{" => :l_curly, :increment=>:curly
@@ -305,13 +307,45 @@ ExpressionLexer = Lexr.setup {
   matches "=" => :equals
   matches "\"" => :umatched_quote, :raises=> "Unmatched quote"
   matches /#.*$/ => :comment
-  default /[^\s^\\^"^\(^\)^\{^\}^\[^\]^,^=]+/ => :word
+  default /[^\s^\\^"^'^\(^\)^\{^\}^\[^\]^,^=]+/ => :word
 }
 
+CommandLexer = Lexr.setup {
+  matches /\\/ => :escape
+  matches /\$[\w]+/ => :variable
+  matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
+  matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
+  matches /\s+/ => :whitespace
+  matches /[-+]?\d*\.\d+/ => :number, :convert_with => lambda { |v| Float(v) }
+  matches /[-+]?\d+/ => :number, :convert_with => lambda { |v| Integer(v) }
+  matches "=" => :equals
+  matches "\"" => :umatched_quote, :raises=> "Unmatched quote"
+  matches /#.*$/ => :comment
+  default /[^\s^=^\$^"^']+/ => :word
+}
+
+SimpleLexer = Lexr.setup{
+  matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
+  matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
+  matches /\s+/ => :whitespace
+  matches "\"" => :umatched_quote, :raises=> "Unmatched quote"
+  matches /#.*$/ => :comment
+  default /[^\s^"^']+/ => :word
+}
+
+#Base Class for all Tokenizers
+#Inherits from Array
 class Tokenizer < Array
   include ZDebug
 
-  class InvalidCharacter <ZError
+  class NoLexer < ZabconError
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "No Lexer Passed"
+    end
+  end
+
+  class InvalidCharacter <ZabconError
     attr_accessor :invalid_char, :invalid_str, :position
 
     def initialize(message=nil, params={})
@@ -328,8 +362,50 @@ class Tokenizer < Array
       puts preamble+@invalid_str
       puts pointer
     end
+  end
+
+  attr_accessor :parsed
+  attr :items
+
+  #Base class version of initialize
+  #Will raise an exception if a Lexer is not passed in.
+  #Takes a string str and and hash arguments and creates a Lexical token reference of str
+  #It will also parse the lexical tokens into an array of items.
+  #:keep_escape determines weather or not to keep all escape backslashes, default false
+  def initialize(str,args={})
+    super()
+    raise NoLexer.new if args[:lexer].nil?
+    debug(8,:msg=>"Initial String",:var=>str.inspect)
+    replace(str.lexer_parse(args[:lexer]))  #replace self with array from lexer_parse
+    debug(8,:msg=>"Tokens",:var=>self)
+    debug(8,:msg=>"Tokens(Length)",:var=>length)
+    @available_tokens=args[:lexer].available_tokens
+  end
+
+  def parse(args={})
+    raise BaseClassError.new
+  end
+
+end
+
+class SimpleTokenizer < Tokenizer
+  def initialize(str,args={})
+    args[:lexer]=ExpressionLexer
+    super(str,args)
+    #@parsed=parse(args)
+    #@items=@parsed.clone
+  end
+
+  def parse
+    map {|i|  #SimpleTokenizer inherits from Array
+      i.value
+    }
 
   end
+
+end
+
+class ExpressionTokenizer < Tokenizer
 
   class UnexpectedClose < InvalidCharacter
     def initialize(message=nil, params={})
@@ -373,14 +449,10 @@ class Tokenizer < Array
   #It will also parse the lexical tokens into an array of items.
   #:keep_escape determines weather or not to keep all escape backslashes, default false
   def initialize(str,args={})
-    super()
-    debug(8,:msg=>"Initial String",:var=>str.inspect)
-    replace(str.lexer_parse(ExpressionLexer))
-    debug(8,:msg=>"Tokens",:var=>self)
-    debug(8,:msg=>"Tokens(Length)",:var=>length)
-    @available_tokens=ExpressionLexer.available_tokens
-    @parsed=parse(args)
-    @items=@parsed.clone
+    args[:lexer]=ExpressionLexer
+    super(str,args)
+    #@parsed=parse(args)
+    #@items=@parsed.clone
   end
 
   def parse(args={})
@@ -881,6 +953,6 @@ end
 #p test_str="a=b \\(a=c\\)"
 #p test_str="\\)"
 
-#p tokens=Tokenizer.new(test_str)
+#p tokens=ExpressionTokenizer.new(test_str)
 #p result=tokens.parse
 

@@ -39,6 +39,7 @@ require 'libs/command_tree'
 require 'libs/command_help'
 require 'libs/zabcon_globals'
 require 'libs/zabcon_commands'
+require 'libs/lexer'
 
 
 
@@ -171,12 +172,13 @@ class ZabconCore
     begin
       catch(:exit) do
         while line=@input.get_line()
+          tokens=ExpressionTokenizer.new(line)
           line=line.strip_comments
           next if line.nil?
           next if line.strip.length==0  # don't bother parsing an empty line'
           debug(6, :var=>line, :msg=>"Input from user")
 
-          commands=ZabconExecuteContainer.new(line)
+          commands=ZabconExecuteContainer.new(tokens)
           debug(8,:var=>commands,:msg=>"Commands tree")
 
           commands.execute

@@ -238,7 +238,8 @@ ZabconCommand.add_command "raw api" do
   end
 
   arg_processor do |params,args,flags|
-    params=Tokenizer.new(params).parse
+    debug(6,:var=>params)
+    params=ExpressionTokenizer.new(params).parse
     parameter_error "Command \"raw api\" requires parameters" if params.empty?
     api_func=params[0]
     params.delete_at(0)
@@ -258,7 +259,7 @@ ZabconCommand.add_command "raw json" do
   set_method do |params|
     begin
       result=server.connection.do_request(params)
-      return result["result"]
+      retval=result["result"]
     rescue ZbxAPI_GeneralError => e
       puts "An error was received from the Zabbix server"
       if e.message.class==Hash
@@ -269,8 +270,12 @@ ZabconCommand.add_command "raw json" do
       puts "Original text:"
       puts parameters
       puts
-      return nil
+      retval=nil
     end
+    retval
+  end
+  arg_processor do |params,args,flags|
+    params
   end
   set_flag :login_required
   set_flag :print_output
@@ -519,7 +524,7 @@ ZabconCommand.add_command "update user" do
       valid_parameters.each {|key| p_keys.delete(key)}
       if !p_keys.empty? then
         puts "Invalid items"
-        p p_keys
+        debug(8,p_keys)
         return false
       elsif parameters["userid"].nil?
         puts "Missing required userid statement."

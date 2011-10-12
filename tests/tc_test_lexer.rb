@@ -48,36 +48,42 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_00_simple_string_1
+  def test_00_base_error
+    assert_raise(Tokenizer::NoLexer) {
+      Tokenizer.new("Test")
+    }
+  end
+
+  def test_05_simple_string_1
     result=nil
 
     test_str="word1 word2,word3 , d , e"
     out = capture_stdout do
-      tokens=Tokenizer.new(test_str)
+      tokens=ExpressionTokenizer.new(test_str)
       result=tokens.parse
     end
     assert_equal(["word1", ["word2", "word3", "d", "e"]],result)
   end
 
-  def test_00_simple_string_2
+  def test_05_simple_string_2
     result=nil
 
     test_str="  test   a=1, bla {b={c=2}}"
     out = capture_stdout do
-      tokens=Tokenizer.new(test_str)
+      tokens=ExpressionTokenizer.new(test_str)
       result=tokens.parse
     end
     assert_equal(["test", [{"a"=>1}, "bla", {"b"=>{"c"=>2}}]],result)
   end
 
-  def test_00_simple_string_3
+  def test_05_simple_string_3
     result=nil
 
     test_str="word1 word2,word3 } , d , e"
 
     out = capture_stdout do
-      result= assert_raise(Tokenizer::UnexpectedClose){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::UnexpectedClose){
+        tokens=ExpressionTokenizer.new(test_str)
         tokens.parse
       }
     end
@@ -85,84 +91,84 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
     assert_equal(18,result.position,"Error was expected at the 18th character")
   end
 
-  def test_00_simple_string_4
+  def test_05_simple_string_4
     result=nil
 
     test_str="  word1 word2,word3   , d , e,"
 
     out = capture_stdout do
-      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         tokens.parse
       }
     end
 
   end
 
-  def test_05_string_1
+  def test_10_string_1
     result=nil
 
     test_str="  test   a=1, bla {b={c=2}}"
 
     out = capture_stdout do
-      tokens=Tokenizer.new(test_str)
+      tokens=ExpressionTokenizer.new(test_str)
       result=tokens.parse
     end
 
     assert_equal(["test", [{"a"=>1}, "bla", {"b"=>{"c"=>2}}]],result,out.string)
   end
 
-  def test_05_escaped_string_1
+  def test_10_escaped_string_1
     result=nil
 
     test_str="\\test \\\\test2"
 
     set_debug_level(8)
     out = capture_stdout do
-      tokens=Tokenizer.new(test_str)
+      tokens=ExpressionTokenizer.new(test_str)
       result=tokens.parse
     end
 
     assert_equal(["test","\\test2"],result,out.string)
   end
 
-  def test_05_escaped_string_2
+  def test_10_escaped_string_2
     result=nil
 
     test_str="\\\\ \\ "
 
     set_debug_level(8)
     out = capture_stdout do
-      tokens=Tokenizer.new(test_str)
+      tokens=ExpressionTokenizer.new(test_str)
       result=tokens.parse(:keep_escape=>true)
     end
 
     assert_equal(["\\\\ ","\\ "],result,out.string)
   end
 
-  def test_05_escaped_string_3
+  def test_10_escaped_string_3
     result=nil
 
     test_str=" \\"
 
     set_debug_level(8)
     out = capture_stdout do
-      result= assert_raise(Tokenizer::EscapeEnd){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::EscapeEnd){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
       }
     end
   end
 
-  def test_05_commented_string_1
+  def test_10_commented_string_1
     result=nil
 
     test_str="This is a test #comment bla bla bla"
 
     set_debug_level(8)
     out = capture_stdout do
-#      result= assert_raise(Tokenizer::EscapeEnd){
-        tokens=Tokenizer.new(test_str)
+#      result= assert_raise(ExpressionTokenizer::EscapeEnd){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
 #      }
     end
@@ -170,15 +176,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
     assert_equal(["This", "is", "a", "test"],result,out.string)
   end
 
-  def test_05_commented_string_2
+  def test_10_commented_string_2
     result=nil
 
     test_str="1,2,3 #comment bla bla bla"
 
     set_debug_level(8)
     out = capture_stdout do
-#      result= assert_raise(Tokenizer::EscapeEnd){
-        tokens=Tokenizer.new(test_str)
+#      result= assert_raise(ExpressionTokenizer::EscapeEnd){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
 #      }
     end
@@ -187,15 +193,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_05_commented_string_3
+  def test_10_commented_string_3
     result=nil
 
     test_str="1,2,3 { #comment bla bla bla"
 
     set_debug_level(8)
     out = capture_stdout do
-      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
       }
     end
@@ -204,15 +210,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_05_hash_string_1
+  def test_10_hash_string_1
     result=nil
 
     test_str="1=2"
 
     set_debug_level(8)
     out = capture_stdout do
-#      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+#      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
 #      }
     end
@@ -221,15 +227,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_05_hash_string_2
+  def test_10_hash_string_2
     result=nil
 
     test_str="1=2 2=3 4=5,6=7"
 
     set_debug_level(8)
     out = capture_stdout do
-#      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+#      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
 #      }
     end
@@ -238,15 +244,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_05_hash_string_3
+  def test_10_hash_string_3
     result=nil
 
     test_str="1= { 2= 3, 4=5,6=7}"
 
     set_debug_level(8)
     out = capture_stdout do
-#      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+#      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
 #      }
     end
@@ -255,15 +261,15 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
 
   end
 
-  def test_05_hash_string_4
+  def test_10_hash_string_4
     result=nil
 
     test_str="1={ 2=3 4=5,6=7}"
 
     set_debug_level(8)
     out = capture_stdout do
-      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
       }
     end
@@ -274,21 +280,28 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
   end
 
 
-  def test_05_hash_string_5
+  def test_10_hash_string_5
     result=nil
 
     test_str="1={2=3, { 4=5,6=7}"
 
     set_debug_level(8)
     out = capture_stdout do
-      result= assert_raise(Tokenizer::InvalidCharacter){
-        tokens=Tokenizer.new(test_str)
+      result= assert_raise(ExpressionTokenizer::InvalidCharacter){
+        tokens=ExpressionTokenizer.new(test_str)
         result=tokens.parse(:keep_escape=>true)
       }
     end
 
     assert_equal(8,result.position,out.string)
     assert_equal("{",result.invalid_char,out.string)
+
+  end
+
+  def test_20_simple_1
+    result=nil
+    test_str=%{"auth":"20d657e0fbe7eb8aeb92d8c2ecfa8236","method":"host.get","id":2,"params":{"extendoutput":true},"jsonrpc":"2.0"}
+    p SimpleTokenizer.new(test_str).parse
 
   end
 

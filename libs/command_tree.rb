@@ -114,13 +114,14 @@ class ZabconExecuteContainer
 
   attr_reader :show_params, :results, :options
 
-  def initialize(usr_str)
-    @initial_string=usr_str
+  def initialize(tokens)
+#    @initial_string=usr_str
+    @initial_tokens=tokens
     @commands=[]
     @printing=true
     commandlist=CommandList.instance
 
-    tokens=Tokenizer.new(usr_str)
+#    tokens=ExpressionTokenizer.new(usr_str)
 
     #split_str=usr_str.split2(:split_char=>'=|\s', :include_split=>true)
     #
@@ -218,6 +219,7 @@ class Command
   attr_reader :help_tag, :path
 
   include ArgumentProcessor
+  include ZDebug
 
   #Class containing processed arguments to be passed to the command
   class Arguments
@@ -369,10 +371,7 @@ class Command
   end
 
   def call_arg_processor(parameters)
-    def set_show_args(args)
-      @arguments.show_params=args
-    end
-
+    debug(6,parameters)
     @arguments=Arguments.new("",@flags)
     result=@argument_processor.call(parameters,{:valid_args=>@valid_args,:required_args=>@required_args},@flags)
     return result if result.is_a?(Arguments)
@@ -502,7 +501,7 @@ class CommandList
 
   def find_and_parse(str)
 
-    tokens=Tokenizer.new(str)
+    tokens=ExpressionTokenizer.new(str)
     token_items=tokens.length
 
     cur_node=@cmd_tree
@@ -532,7 +531,7 @@ class CommandList
 
     debug(6,:msg=>"Tokens", :var=>tokens)
     debug(6,:msg=>"Pos", :var=>pos)
-    debug(6,:msg=>"Parsed", :var=>tokens.parse)
+#    debug(6,:msg=>"Parsed", :var=>tokens.parse)
     params = tokens.drop(pos+1).join
 
     debug(6,:msg=>"Parameters", :var=>params)

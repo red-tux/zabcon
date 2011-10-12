@@ -43,3 +43,11 @@ end
 
 class ZabconError < ZError
 end
+
+class BaseClassError < ZabconError
+  def initialize(message=nil, params={})
+    super(message,params)
+    @message=mesasge || "Base Class Method Called"
+  end
+end
+
