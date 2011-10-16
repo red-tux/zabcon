@@ -123,8 +123,10 @@ class ZabconCore
         begin
           load filename
         rescue Exception=> e
-          puts "There was an error loading your custom commands"
-          p e
+          warn "*** Error loading custom commands ***"
+          warn "#{e.class.to_s}: #{e}"
+          warn "Custom commands from: #{filename} were not loaded."
+          warn ""
         end
       end
     end
