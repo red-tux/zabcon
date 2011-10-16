@@ -18,8 +18,8 @@
 
 ##########################################
 # Subversion information
-# $Id: zabbix_server.rb 325 2011-09-26 08:57:00Z nelsonab $
-# $Revision: 325 $
+# $Id$
+# $Revision$
 ##########################################
 
 #Custom_command_get_graph
