@@ -223,7 +223,7 @@ class Command
 
   #Class containing processed arguments to be passed to the command
   class Arguments
-    class ParameterError < Exception
+    class ParameterError < ZError
     end
 
     attr_accessor :cmd_params
@@ -259,7 +259,7 @@ class Command
   class LoginRequired < Exception
   end
 
-  class ParameterError < Exception
+  class ParameterError < ZError
   end
 
   class ArgumentError < Exception
@@ -386,7 +386,7 @@ class Command
     return if !parameters.is_a?(Hash)
 
     if !@valid_args.empty?
-      args_keys=args.keys
+      args_keys=parameters.keys
 
       invalid_args=args_keys-@valid_args if @valid_args
       raise ParameterError.new("Invalid parameters: "+invalid_args.join(", "),

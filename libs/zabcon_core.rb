@@ -24,7 +24,7 @@
 # $Revision$
 ##########################################
 
-require 'libs/utility_items'
+#require 'libs/utility_items'
 require 'libs/revision'
 require 'parseconfig'
 require 'ostruct'
