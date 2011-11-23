@@ -47,8 +47,9 @@ ZabconCommand.add_command "help" do
       end
     end
   end
-  set_flag :array_params
+#  set_flag :array_params
   set_help_tag :help
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "help commands" do
@@ -69,7 +70,8 @@ ZabconCommand.add_command "login" do
     server.login
   end
   set_help_tag :help
-  set_flag :array_params
+#  set_flag :array_params
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "logout" do
@@ -120,8 +122,9 @@ ZabconCommand.add_command "set debug" do
     env["debug"]=params[0]
   end
   depreciated "set env debug=N"
-  set_flag :array_params
+#  set_flag :array_params
   set_help_tag :set_debug
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set lines" do
@@ -129,8 +132,9 @@ ZabconCommand.add_command "set lines" do
     env["lines"]=params[0]
   end
   depreciated "set env lines=N"
-  set_flag :array_params
+#  set_flag :array_params
   set_help_tag :set_lines
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set pause" do
@@ -149,8 +153,9 @@ ZabconCommand.add_command "set pause" do
     end
     env["lines"]=24 if env["lines"]==0
   end
-  set_flag :array_params
+#  set_flag :array_params
   set_help_tag :set_pause
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "show var" do
@@ -174,7 +179,8 @@ ZabconCommand.add_command "show var" do
     end
   end
   set_help_tag :show_var
-  set_flag :array_params
+#  set_flag :array_params
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "show env" do
@@ -198,7 +204,8 @@ ZabconCommand.add_command "show env" do
     end
   end
   set_help_tag :show_env
-  set_flag :array_params
+#  set_flag :array_params
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set var" do
@@ -226,33 +233,42 @@ ZabconCommand.add_command "unset var" do
       }
     end
   end
-  set_flag :array_params
+#  set_flag :array_params
   set_help_tag :unset_var
+  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "raw api" do
   set_method do |params|
-    api_func=params[:method]
-    params=params[:params]
-    server.connection.raw_api(api_func, params)
-  end
-
-  arg_processor do |params,args,flags|
-    debug(6,:var=>params)
-    params=ExpressionTokenizer.new(params).parse
-    parameter_error "Command \"raw api\" requires parameters" if params.empty?
     api_func=params[0]
     params.delete_at(0)
-    params2={}
-    params.each do |i|
-      params2.merge!(i)
+    args={}
+    if !params.empty?
+      args=ExpressionTokenizerHash.new(params.join(" ")).parse
     end
-    {:method=>api_func, :params=>params2}
+    #api_func=params[:method]
+    #params=params[:params]
+    server.connection.raw_api(api_func, args)
   end
+
+  #arg_processor do |params,args,flags|
+  #  debug(6,:var=>params)
+  #  params=ExpressionTokenizer.new(params).parse
+  #  parameter_error "Command \"raw api\" requires parameters" if params.empty?
+  #  api_func=params[0]
+  #  params.delete_at(0)
+  #  params2={}
+  #  params.each do |i|
+  #    params2.merge!(i)
+  #  end
+  #  {:method=>api_func, :params=>params2}
+  #end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
+  set_tokenizer CommandTokenizer
+#  set_tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "raw json" do
@@ -268,19 +284,20 @@ ZabconCommand.add_command "raw json" do
         puts "Error data: #{e.message["data"]}"
       end
       puts "Original text:"
-      puts parameters
+      puts params
       puts
       retval=nil
     end
     retval
   end
-  arg_processor do |params,args,flags|
-    params
-  end
+  #arg_processor do |params,args,flags|
+  #  params
+  #end
   set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
+  set_tokenizer SimpleTokenizerString
 end
 
 ###############################################################################

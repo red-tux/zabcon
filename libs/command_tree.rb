@@ -29,7 +29,7 @@ require 'libs/lexer'
 require 'zbxapi/zdebug'
 require 'libs/zabcon_exceptions'
 require 'libs/zabcon_globals'
-require 'libs/argument_processor'
+#require 'libs/argument_processor'
 
 class ZabconExecuteBase
   include ZDebug
@@ -218,7 +218,7 @@ class Command
   attr_reader :required_args, :valid_args
   attr_reader :help_tag, :path
 
-  include ArgumentProcessor
+#  include ArgumentProcessor
   include ZDebug
 
   #Class containing processed arguments to be passed to the command
@@ -278,7 +278,15 @@ class Command
     @result_type=nil
 
     #TODO Can the argument processor stuff be cleaned up?
-    @argument_processor=method(:default_processor)
+#    @argument_processor=method(:default_processor)
+    #The argument processor is nil by default.
+    #The method call_arg_processor will call the tokenizer and the
+    #argument processor if it is not nil.
+    #Otherwise a default method will be called which will check the
+    #current parameters list for validity.
+    @argument_processor=nil
+    @tokenizer=ExpressionTokenizerHash
+
     @help_tag=nil
     @depreciated=nil
   end
@@ -354,6 +362,10 @@ class Command
     @help_tag=sym
   end
 
+  def set_tokenizer(tokenizer)
+    @tokenizer=tokenizer
+  end
+
   #--
   #TODO Complete type casting section and add error checking
   #++
@@ -361,27 +373,58 @@ class Command
   # :login_required  - command requires a valid login
   # :print_output  - the output of the command will be passed to the print processor
   # :array_params  - Only process the parameters as an array
-  def set_flag(flag)
+  def set_flag(flag,val=nil)
     case flag.class.to_s
       when "Symbol"
-        flag={flag=>true}
+        flag=val.nil? ? {flag=>true} : {flag=>val}
     end
 
     @flags.merge!(flag)
   end
 
-  def call_arg_processor(parameters)
-    debug(6,parameters)
-    @arguments=Arguments.new("",@flags)
-    result=@argument_processor.call(parameters,{:valid_args=>@valid_args,:required_args=>@required_args},@flags)
-    return result if result.is_a?(Arguments)
-    if !result.is_a?(String) && !result.is_a?(Hash) && !result.is_a?(Array)
-      raise ("Arugment processor for \"#{command_name}\" returned invalid parameters: class: #{result.class}, #{result}")
-    else
-      @arguments.cmd_params=result
-      arguments=@arguments
-      return arguments
+  def check_parameters(parameters)
+    return if !parameters.is_a?(Hash)
+
+    if !@valid_args.empty?
+      args_keys=args.keys
+
+      invalid_args=args_keys-@valid_args if @valid_args
+      raise ParameterError.new("Invalid parameters: "+invalid_args.join(", "),
+                               :retry=>true) if !invalid_args.empty?
+
+      required_args=@required_args.reject{|i| i.class==Array }
+      required_or_args=@required_args.reject{|i| i.class!=Array }
+
+      missing_args=[]
+      missing_args=required_args-args_keys
+
+      required_or_args.delete_if do |i|
+        count=i.length
+        missing_args<<i if (i-args_keys).count==count
+      end
+
+      if !missing_args.empty?
+        msg=missing_args.map do |i|
+          if i.class==Array
+            "(#{i.join(" | ")})"
+          else
+            i
+          end
+        end.join(", ")
+        raise ParameterError.new("Missing required arguments: #{msg}",:retry=>true)
+      end
     end
+  end
+
+  def call_arg_processor(parameters)
+    debug(6,:msg=>"parameters",:var=>"\"#{parameters.to_s}\"")
+    debug(7,:msg=>"Using tokenizer", :var=>@tokenizer.to_s)
+    tokenized_parameters=@tokenizer.new(parameters).parse
+    debug(7,:msg=>"Tokenized Parameters",:var=>tokenized_parameters)
+    check_parameters(tokenized_parameters)
+    @arguments=Arguments.new(tokenized_parameters, @flags)
+    debug(6,:var=>@arguments)
+    @arguments
   end
 
   #Sets the symbold describing the result type.  May be used by the print processor
@@ -501,7 +544,8 @@ class CommandList
 
   def find_and_parse(str)
 
-    tokens=ExpressionTokenizer.new(str)
+    tokens=CommandTokenizer.new(str)
+
     token_items=tokens.length
 
     cur_node=@cmd_tree

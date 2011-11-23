@@ -388,9 +388,9 @@ class Tokenizer < Array
 
 end
 
-class SimpleTokenizer < Tokenizer
+class BasicExpressionTokenizer < Tokenizer
   def initialize(str,args={})
-    args[:lexer]=ExpressionLexer
+    args[:lexer]||=ExpressionLexer
     super(str,args)
     #@parsed=parse(args)
     #@items=@parsed.clone
@@ -398,8 +398,9 @@ class SimpleTokenizer < Tokenizer
 
   def parse
     map {|i|  #SimpleTokenizer inherits from Array
+      next if i.kind==:end
       i.value
-    }
+    }.compact
 
   end
 
@@ -449,7 +450,7 @@ class ExpressionTokenizer < Tokenizer
   #It will also parse the lexical tokens into an array of items.
   #:keep_escape determines weather or not to keep all escape backslashes, default false
   def initialize(str,args={})
-    args[:lexer]=ExpressionLexer
+    args[:lexer]||=ExpressionLexer
     super(str,args)
     #@parsed=parse(args)
     #@items=@parsed.clone
@@ -939,6 +940,65 @@ class ExpressionTokenizer < Tokenizer
     debug(8,:msg=>"Unravel-While-end",:var=>[have_item, status.delim])
 
     return pos, retval
+  end
+end
+
+class ExpressionTokenizerHash < ExpressionTokenizer
+
+  @default_val = true
+
+  class InvalidItem <ZabconError
+    attr_accessor :invalid_item
+
+    def initialize(message=nil, params={})
+      super(message,params)
+      @message=message || "Invalid Token"
+      @invalid_item=params[:invalid_item] || nil
+    end
+
+    def show_message
+      puts "#{@message}  \"#{@invalid_item}\""
+    end
+  end
+
+
+  def parse(args={})
+    parsed=super(args)
+    ret_hash={}
+    parsed.each do |item|
+      if item.is_a?(Hash)
+        val=item
+      elsif item.is_a?(Numeric) || item.is_a?(String)
+        val={item.to_s=>@default_val}
+      else
+        raise InvaliItem.new("Invalid token for hash key",:invalid_item=>item.to_s)
+      end
+      ret_hash.merge!(val)
+    end
+    ret_hash
+  end
+
+end
+
+class CommandTokenizer < ExpressionTokenizer
+  def initialize(str,args={})
+    args[:lexer]||=CommandLexer
+
+    super(str,args)
+  end
+end
+
+class SimpleTokenizer < BasicExpressionTokenizer
+  def initialize(str,args={})
+    args[:lexer]||=SimpleLexer
+
+    super(str,args)
+  end
+end
+
+class SimpleTokenizerString < SimpleTokenizer
+  def parse
+    super.join
   end
 end
 

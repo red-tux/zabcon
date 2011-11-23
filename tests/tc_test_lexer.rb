@@ -301,7 +301,7 @@ class TC_Test_00_Lexerr < Test::Unit::TestCase
   def test_20_simple_1
     result=nil
     test_str=%{"auth":"20d657e0fbe7eb8aeb92d8c2ecfa8236","method":"host.get","id":2,"params":{"extendoutput":true},"jsonrpc":"2.0"}
-    p SimpleTokenizer.new(test_str).parse
+    p BasicExpressionTokenizer.new(test_str).parse
 
   end
 

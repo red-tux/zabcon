@@ -40,6 +40,7 @@ require 'libs/command_help'
 require 'libs/zabcon_globals'
 require 'libs/zabcon_commands'
 require 'libs/lexer'
+require 'pp'
 
 
 
@@ -57,12 +58,10 @@ class ZabconCore
 
     @printer=OutputPrinter.new
     debug(5,:msg=>"Setting up help")
-#    @cmd_help=CommandHelp.new("english")  # Setup help functions, determine default language to use
     CommandHelp.setup("english")
 
     #TODO Remove reference to ArgumentProcessor when new command objects in use
     debug(5,:msg=>"Setting up ArgumentProcessor")
-#    @arg_processor=ArgumentProcessor.new  # Need to instantiate for debug routines
 
     if !env["server"].nil? and !env["username"].nil? and !env["password"].nil? then
       puts "Found valid login credentials, attempting login"  if env["echo"]
@@ -94,9 +93,12 @@ class ZabconCore
     end
 
 ###############################################################################
+# Configure the history command.
 ###############################################################################
+
+
     zabconcore=self
-    if @input.respond_to?(:history)
+    if @input.respond_to?(:history)  #does our input object have a history method?
       ZabconCommand.add_command "history" do
         set_method do  zabconcore.show_history end
         set_help_tag :history
@@ -134,38 +136,6 @@ class ZabconCore
     debug(5,:msg=>"Setup complete")
   end
 
-#  #TODO The following method may need to be removed when new command object in use
-#  # Argument logged in is used to determine which set of commands to load. If loggedin is true then commands which
-#  # require a valid login are loaded
-#  def setupcommands(loggedin)
-#    debug(5,loggedin,"Starting setupcommands (loggedin)")
-#
-#
-##    no_cmd=nil
-##    no_args=nil
-##    no_help=nil
-##    no_verify=nil
-#
-#    login_required = lambda {
-#      debug(6,"Lambda 'login_required'")
-#      puts "Login required"
-#      }
-#
-#    # parameters for insert:  insert_path, command, commandproc, arguments=[], helpproc=nil, verify_func=nil, options
-#
-#      #Import commented out until fixed
-#      #@commands.insert ["import"], self.method(:do_import),no_args,@cmd_help.method(:import),@arg_processor.default,:not_empty, :use_array_processor, :num_args=>"==1"
-#
-#      @commands.insert ["add","app","id"], @server.method(:getappid),no_args,no_help,no_verify
-#      @commands.insert ["add","link"], @server.method(:addlink),no_args,no_help,no_verify
-#      @commands.insert ["add","link","trigger"], @server.method(:addlinktrigger),no_args,no_help,no_verify
-#      @commands.insert ["add","sysmap"], @server.method(:addsysmap),no_args,no_help,no_verify
-#      @commands.insert ["add","sysmap","element"], @server.method(:addelementtosysmap),no_args,no_help,no_verify
-#      @commands.insert ["add","user","media"], @server.method(:addusermedia),no_args,@cmd_help.method(:add_user_media),no_verify
-#
-#      @commands.insert ["get","host","group","id"], @server.method(:gethostgroupid), no_args, no_help, @arg_processor.method(:get_group_id)
-#      @commands.insert ["get","seid"], @server.method(:getseid), no_args, no_help, @arg_processor.default_get
-
   def start
     debug(5,:msg=>"Entering main zabcon start routine")
     puts "Welcome to Zabcon.  Build Number: #{REVISION}"  if env["echo"]
@@ -174,8 +144,10 @@ class ZabconCore
     begin
       catch(:exit) do
         while line=@input.get_line()
-          tokens=ExpressionTokenizer.new(line)
-          line=line.strip_comments
+          #tokens=ExpressionTokenizer.new(line)
+          tokens=CommandTokenizer.new(line)
+#          line=line.strip_comments
+          tokens.delete_if {|item| item.kind==:comment}
           next if line.nil?
           next if line.strip.length==0  # don't bother parsing an empty line'
           debug(6, :var=>line, :msg=>"Input from user")
@@ -278,29 +250,6 @@ class ZabconCore
     puts "inside set_debug_api_level"
     set_facility_debug_level(:api,value)
   end
-
-#  def set_var(input)
-#    debug(6,input)
-#    input.each {|key,val|
-#      GlobalVars.instance[key]=val
-#      puts "#{key} : #{val.inspect}"
-#    }
-#  end
-
-#  def unset_var(input)
-#    if input.empty?
-#      puts "No variables given to unset"
-#    else
-#      input.each {|item|
-#        if GlobalVars.instance[item].nil?
-#          puts "#{item} *** Not Defined ***"
-#        else
-#          GlobalVars.instance.delete(item)
-#          puts "#{item} Deleted"
-#        end
-#      }
-#    end
-#  end
 
 #
 # Import config from an XML file:

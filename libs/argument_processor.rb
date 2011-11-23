@@ -202,7 +202,7 @@ module ArgumentProcessor
   # In :num_args is passed with a value, and error will be returned if more than that many args are passed
 
   def default_processor(args,arg_info,flags={})
-    args=args.strip  #remove preceding and trailing whitespace
+#    args=args.strip  #remove preceding and trailing whitespace
     #valid_args=arg_info[:valid_args]
     #required_args=arg_info[:required_args]
     invalid_args=[]
@@ -216,6 +216,7 @@ module ArgumentProcessor
     elsif flags[:string_params]
       args=args
     else
+
       args=params_to_hash(args)
 
       if !arg_info[:valid_args].empty?
