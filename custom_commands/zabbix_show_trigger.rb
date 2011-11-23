@@ -22,8 +22,18 @@
 # $Revision$
 ##########################################
 
-require "pp"
 #Custom_command_show_trigger
+#This custom command will parse the trigger as it sits in the Zabbix DB via
+#the API and reconstruct the user readable text representation of the trigger
+#formula.  The following is an example:
+#+> zabbix show trigger triggerids=1
+# Triggers result set
+# +-----------+-----------------------------------------------------------+--------------+-------+--------+
+# | triggerid | expression                                                | description  | value | status |
+# +-----------+-----------------------------------------------------------+--------------+-------+--------+
+# | 1         | {test:lua[test2].last(0)}=4 & {test:lua[debug].last(0)}#4 | test trigger | 2     | 0      |
+# +-----------+-----------------------------------------------------------+--------------+-------+--------+
+
 
 ZabconCommand.add_command "zabbix show trigger" do
   set_method do |params|
@@ -48,7 +58,6 @@ ZabconCommand.add_command "zabbix show trigger" do
       trigger["expression"]=tr_expression
       trigger.delete("functions") unless select_functions
     end
-    p triggers
     triggers
   end
 
