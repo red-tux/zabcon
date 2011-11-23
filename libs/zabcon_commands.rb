@@ -238,6 +238,19 @@ ZabconCommand.add_command "unset var" do
   set_tokenizer SimpleTokenizer
 end
 
+ZabconCommand.add_command "show revisions" do
+  set_method do |params|
+    revision_path=File.join(ZABCON_PATH,"revision_information")
+    raise ZabconError.new("Revision file not found!",:retry=>true) if !File.file?(revision_path)
+    revision_file=File.new(revision_path)
+    while !revision_file.eof
+      puts revision_file.gets
+    end
+    revision_file.close
+  end
+  set_help_tag :show_revision
+end
+
 ZabconCommand.add_command "raw api" do
   set_method do |params|
     api_func=params[0]

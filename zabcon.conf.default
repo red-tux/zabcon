@@ -27,15 +27,40 @@ password=zabbix
 #output related environment variables
 
 # Are we displaying a well formatted table or csv?  Zabcon will automatically
-# set this variable to true for intaractive use.
+# set this variable to true for interactive use.
 # true = table   false = csv
 #table_output=true
 
 # Print the table header?
 #table_header=true
 
-# The default seperator character for csv output.
+# The default separator character for csv output.
 #table_separator=","
 
+[custom_commands]
+#This is a sub section which deals with Custom commands
+#ONLY CUSTOM COMMAND INFORMATION IS ALLOWED IN THIS SECTION
+#Custom commands can be explicitly called paths or globs may be given.
+#Each entry however must have a unique name.  There are two reserved names
+#in this section "base_path" and "show_load".
+#base_path denotes the base path to be used for relative paths, by default
+#it is ~ (home directory of the current user)
+#show_load has two values "show" and "all" and is case insensitive.
+#"all" (default) will show each file being loaded if echo is enabled
+#"total" will only show a total of how many files were loaded if echo is
+#enabled.
+
+#The following are some examples
+#base_path=/usr/local/zabcon
+#show_load=all
+
+#dir1=custom_commands
+#If custom_commands is a directory in /usr/local/zabcon all files i that
+#directory, except (dot) files, will be loaded because the base search
+#path is /usr/loca/zabcon
+
+#dir2=~/zabcon_commands
+#file1=~/my_zabcon_commands.rb
+#file2=~/ruby/zabcon*.rb
 # File to store custom commands
 #custom_commands=sample_custom_commands

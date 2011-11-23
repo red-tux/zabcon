@@ -46,6 +46,7 @@ spec = Gem::Specification.new do |s|
   s.require_paths =["."]
   s.files =
     ["zabcon.rb", "zabcon.conf.default", "README",
+     "revision_information",
      "libs/argument_processor.rb", "libs/revision.rb",
      "libs/command_help.rb", "libs/command_tree.rb",
      "libs/help.xml", "libs/input.rb", "libs/lexer.rb",

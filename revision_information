@@ -1,0 +1,9 @@
+**** 11/23/11 nelsonab
+* Added revision file and command to display revision information
+  "show revision"
+* Added support for multiple custom command files.
+  See Sample command file for full information.
+  Sample can be found here:
+   http://trac.red-tux.net/browser/trunk/ruby/zabcon/zabcon.conf.default
+* Fixed Raw JSON support
+  variable substitution currently not working.

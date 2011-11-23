@@ -42,12 +42,9 @@ require 'libs/zabcon_commands'
 require 'libs/lexer'
 require 'pp'
 
-
-
 class ZabconCore
 
   include ZDebug
-
 
   def initialize()
     # This must be set first or the debug module will throw an error
@@ -95,8 +92,6 @@ class ZabconCore
 ###############################################################################
 # Configure the history command.
 ###############################################################################
-
-
     zabconcore=self
     if @input.respond_to?(:history)  #does our input object have a history method?
       ZabconCommand.add_command "history" do
@@ -114,26 +109,79 @@ class ZabconCore
 
     debug(5,:msg=>"Setting up custom commands")
 
-    if !env["custom_commands"].nil?
-      filename=nil
-      cmd_file=env["custom_commands"]
-      filename=File.exist?(cmd_file) && cmd_file
-      cmd_file=File::expand_path("~/#{env["custom_commands"]}")
-      filename=File.exist?(cmd_file) && cmd_file if filename.class!=String
-      if filename.class==String
-        puts "Loading custom commands from #{filename}" if env["echo"]
-        begin
-          load filename
-        rescue Exception=> e
-          warn "*** Error loading custom commands ***"
-          warn "#{e.class.to_s}: #{e}"
-          warn "Custom commands from: #{filename} were not loaded."
-          warn ""
+
+    if !(custom_commands=env["custom_commands"]).nil?
+      if custom_commands.is_a?(String)
+        load_command_path(custom_commands)
+      elsif custom_commands.is_a?(Hash)
+        base_path=custom_commands["base_path"]
+        custom_commands.delete("base_path") if base_path
+        show_load=custom_commands["show_load"]
+        if show_load
+          show_load=show_load.downcase
+          custom_commands.delete("show_load")
+          if !show_load.is_a?(String) ||
+            !(show_load=="total" || show_load=="all")
+            warn "Invalid value for show_load: #{custom_commands}"
+            warn "Valid arguments are \"all\" and \"total\""
+            env["show_load"]=nil
+          else
+            env["show_load"]=show_load
+          end
+        else
+          env["show_load"]="all"
         end
+
+        env["load_count"]=0
+
+        custom_commands.each { |k,v|
+          load_command_path(v,base_path,show_load)
+        }
+
+        puts "#{env["load_count"]} Custom command files loaded" if show_load=="total"
+      else
+        warn "\"#{custom_commands.to_s}\" is an invalid parameter for custom_commands"
       end
     end
 
     debug(5,:msg=>"Setup complete")
+  end
+
+  def load_command_path(path,base_path=nil,show_load=nil)
+    base_path||="~"
+    load_path=nil
+    path=File.expand_path(path,base_path)
+    if File.file?(path)
+      load_path=[path]
+    elsif File.directory?(path)
+      load_path=Dir.entries(path).map { |i|
+        if i =~ /^\..*/
+          nil
+        else
+          File.join(path,i)
+        end
+      }
+      load_path.compact!
+    else
+      load_path=Dir[path]
+    end
+
+    return if load_path.nil? || load_path.empty?
+
+    load_path.each { |f|
+      env["load_count"]+=1
+      puts "Loading custom commands from #{f}" if env["echo"] && env["show_load"]=="all"
+
+      begin
+        load f
+      rescue Exception=> e
+        warn "*** Error loading custom commands ***"
+        warn "#{e.class.to_s}: #{e}"
+        warn "Custom commands from: #{f} were not loaded."
+        warn ""
+        env["load_count"]-=1
+      end
+    }
   end
 
   def start
@@ -216,26 +264,6 @@ class ZabconCore
   return " #{debug_part}-> " if @server.nil?
   @server.login? ? " #{debug_part}+> " : " #{debug_part}-> "
   end
-
-#  def set_lines(input)
-#    @printer.sheight=input.keys[0].to_i
-#  end
-
-#  def set_pause(input)
-#    if input.nil? then
-#      puts "set pause requires either Off or On"
-#      return
-#    end
-#
-#    if input.keys[0].upcase=="OFF"
-#      @printer.sheight=@printer.sheight.abs*(-1)
-#    elsif input.keys[0].upcase=="ON"
-#      @printer.sheight=@printer.sheight.abs
-#    else
-#      puts "set pause requires either Off or On"
-#    end
-#    @printer.sheight = 24 if @printer.sheight==0
-#  end
 
   def set_debug(input)
     if input["prompt"].nil? then
