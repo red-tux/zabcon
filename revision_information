@@ -27,3 +27,6 @@
   which is determined by the config file option "session_file".  When starting
   this file is interrogated if an auth key is found, Zabcon will try to use it.
   If the auth key does not work it continues with the normal startup sequence.
+* Configured auth cache file to have permissions of 0600
+* Fixed crash with ZBXAPI_ParameterError
+* Fixed command line override for auth

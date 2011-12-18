@@ -148,10 +148,10 @@ class ZabconApp
         @cmd_opts.debug=level
       end
       opts.on("-s","--session PATH","Path to the file to store session information.") do |session|
-        @cmd.session_file=session
+        @cmd_opts.session_file=session
       end
       opts.on("--no-session","Disable checking of the session file on startup") do
-        @cmd.session_file=""
+        @cmd_opts.session_file=""
       end
       opts.on("-e", "--[no-]echo", "Enable startup echo.  Default is on ","for interactive") do |echo|
         @cmd_opts.echo=echo

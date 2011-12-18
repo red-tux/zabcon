@@ -22,6 +22,7 @@
 # $Revision$
 ##########################################
 
+require 'yaml'
 require 'zbxapi'
 require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
@@ -101,6 +102,8 @@ class ZabbixServer
       File.open(path,"w") do |f|
         f.write({"auth"=>@connection.auth}.to_yaml)
       end
+      #Enforce that the auth cache file isn't world readable
+      File.chmod(0600,path)
     end
 
   end

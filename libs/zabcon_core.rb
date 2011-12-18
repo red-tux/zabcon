@@ -29,6 +29,7 @@ require 'libs/revision'
 require 'parseconfig'
 require 'ostruct'
 require 'rexml/document'
+require 'yaml'
 require 'libs/zabbix_server'
 require 'libs/printer'
 require 'zbxapi/zdebug'
@@ -185,6 +186,7 @@ class ZabconCore
     end
 
     return if load_path.nil? || load_path.empty?
+    env["load_count"]||=0
 
     load_path.each { |f|
       env["load_count"]+=1
@@ -227,27 +229,30 @@ class ZabconCore
 
         end  # while
       end #end catch
-    rescue CommandList::InvalidCommand => e
+    rescue CommandList::InvalidCommand, Command::NonFatalError,
+        Command::ParameterError, ZabbixServer::ConnectionProblem,
+        ZbxAPI_ExceptionVersion, ZbxAPI_ExceptionBadAuth,
+        ZbxAPI_ParameterError => e
       puts e.message
       retry
-    rescue Command::NonFatalError => e
-      puts e.message
-      retry
-    rescue Command::ParameterError => e
-      puts e.message
-      retry
-    rescue ZabbixServer::ConnectionProblem => e
-      puts e.message
-      retry
+    #rescue Command::NonFatalError => e
+    #  puts e.message
+    #  retry
+    #rescue Command::ParameterError => e
+    #  puts e.message
+    #  retry
+    #rescue ZabbixServer::ConnectionProblem => e
+    #  puts e.message
+    #  retry
     rescue ParseError => e  #catch the base exception class
       e.show_message
       retry if e.retry?
-    rescue ZbxAPI_ExceptionVersion => e
-      puts e
-      retry  # We will allow for graceful recover from Version exceptions
-    rescue ZbxAPI_ExceptionBadAuth => e
-      puts e.message
-      retry
+    #rescue ZbxAPI_ExceptionVersion => e
+    #  puts e
+    #  retry  # We will allow for graceful recover from Version exceptions
+    #rescue ZbxAPI_ExceptionBadAuth => e
+    #  puts e.message
+    #  retry
     rescue ZbxAPI_ExceptionLoginPermission
       puts "No login permissions"
       retry
