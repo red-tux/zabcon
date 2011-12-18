@@ -15,3 +15,10 @@
 
 **** 12/09/11 nelsonab
 * Bumped zbxapi version dependency to 0.1.352
+
+*** 12/18/11 nelsonab
+* Fixed login command
+* Added factory method "options" to Tokenizer class
+* Added deprecate_function to Command class
+  Will show a warning message with new function name to use along with
+  command file path and line numbers/command name
