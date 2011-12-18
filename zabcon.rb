@@ -42,7 +42,7 @@ DEPENDENCIES={
   "parseconfig"=>true,
   "json"=>true,
   "highline"=>true,
-  "zbxapi"=>Gem::Version.new("0.1.294")
+  "zbxapi"=>Gem::Version.new("0.1.352")
 }
 
 
@@ -70,11 +70,14 @@ DEPENDENCIES.each_key {|dep|
     depsok=false
     break
   end
-  gem=gem[0]
-  if DEPENDENCIES[dep].class==Gem::Version && gem.version<DEPENDENCIES[dep]
-    puts "#{dep} needs to be at least version #{DEPENDENCIES[dep]}, found #{gem.version}"
-    depsok=false
-  end
+  gem.sort!{ |a,b| a.version <=> b.version }
+  depsok=depsok && !gem.map { |g|
+    if DEPENDENCIES[dep].class==Gem::Version && g.version<DEPENDENCIES[dep]
+      "#{dep} needs to be at least version #{DEPENDENCIES[dep]}, found #{g.version}"
+    else
+
+    end
+  }.delete_if {|i| i==false}.empty?
 }
 if !depsok
   puts

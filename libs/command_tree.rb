@@ -70,7 +70,8 @@ class ZabconExecuteCommand < ZabconExecuteBase
     @proc=cmd_obj.command_obj.method(:execute)
     @command_obj=cmd_obj.command_obj
     begin
-      arg_result=@command_obj.call_arg_processor(cmd_obj.parameters)
+      arg_result=@command_obj.call_tokenizer(cmd_obj.parameters)
+      arg_result=@command_obj.call_arg_processor(arg_result)
     #TODO Fix showing help messages
     #rescue ParameterError => e
     #  e.help_func=cmd_obj.command_obj.help_method
@@ -80,6 +81,7 @@ class ZabconExecuteCommand < ZabconExecuteBase
     @show_params=arg_result.show_params
     @printing=cmd_obj.command_obj.print?
     @command_name=cmd_obj.command_obj.command_name
+
 #    @help=cmd_obj.help
 #    @options=options
 
@@ -115,47 +117,11 @@ class ZabconExecuteContainer
   attr_reader :show_params, :results, :options
 
   def initialize(tokens)
-#    @initial_string=usr_str
     @initial_tokens=tokens
     @commands=[]
     @printing=true
     commandlist=CommandList.instance
 
-#    tokens=ExpressionTokenizer.new(usr_str)
-
-    #split_str=usr_str.split2(:split_char=>'=|\s', :include_split=>true)
-    #
-    #unravel=false  #remove any extra space before the first =
-    #split_str2=split_str.map {|item|
-    #  if unravel
-    #    item
-    #  elsif item=="="
-    #    unravel=true
-    #    item
-    #  elsif item.empty?
-    #    nil
-    #  elsif item.scan(/\s/).empty?
-    #    item
-    #  else
-    #    nil
-    #  end
-    #}.delete_if {|i| i.nil?}
-    #
-    #if !split_str2[1].nil? && split_str2[1]=='='
-    #  split_str=split_str2  #use the trimmed version
-    #  var_name=split_str[0].strip
-    #  raise ParseError.new("Variable names cannot contain spaces or invalid characters \"#{var_name}\"",:retry=>true) if !var_name.scan(/[^\w]/).empty?
-    #
-    #  debug(5,:var=>var_name,:msg=>"Creating Variable assignment")
-    #  add(ZabconExecuteVariable.new(var_name))
-    #
-    #  usr_str=split_str[2..split_str.length-1].join.strip
-    #  debug(5,:var=>usr_str,:msg=>"Continuging to parse with")
-    #end
-    #
-    #debug(6,:var=>split_str,:msg=>"Split Str")
-    #debug(6,:var=>split_str2,:msg=>"Split Str2")
-    #debug(6,:var=>usr_str,:msg=>"User Str")
     pos=tokens.walk(0)
     if (positions=tokens.assignment?(pos,:return_pos=>true))
       var_name = tokens[positions[0]].value
@@ -164,11 +130,18 @@ class ZabconExecuteContainer
       tokens=tokens.drop(positions[2]+1)
     end
 
-    cmd_str=tokens.map{|i| i.value}.join
+    cmd_str=tokens.map{|i|
+      if i.kind==:variable
+        name=/^\$(.*)/.match(i.value)[1]
+        GlobalVars.instance[name] || env[name]
+      else
+        i.value
+      end
+      }.join
+
     debug(5,:msg=>"Command String",:var=>cmd_str)
     cmd=commandlist.find_and_parse(cmd_str)
     add(ZabconExecuteCommand.new(cmd))
-
   end
 
   def print?
@@ -253,6 +226,11 @@ class Command
     end
   end
 
+  #Command Error
+  #Raised whenever there is a problem with a command configuration
+  class CommandError < ZError
+  end
+
   class NonFatalError < Exception
   end
 
@@ -286,9 +264,27 @@ class Command
     #current parameters list for validity.
     @argument_processor=nil
     @tokenizer=ExpressionTokenizerHash
+    @tokenizer_method=nil
 
     @help_tag=nil
     @depreciated=nil
+  end
+
+  def deprecate_function(new_func)
+    #probe the stack to find the deprecated function name
+    caller[0]=~/`(.*?)'/
+    function=$1
+
+    #probe the stack again to find the command definition
+    caller[1]=~/(.*):(\d+).*/
+    path=$1
+    line_num=$2
+
+    warn("Command definition Warning")
+    warn("  \"#{function}\" is depreciated and may be removed in future versions")
+    warn("  use \"#{new_func}\".  Command: \"#{command_name}\", line number #{line_num}")
+    warn("  Path: #{path}")
+    warn("  Fixing the command definition will remove this warning.")
   end
 
   def command_name
@@ -350,11 +346,18 @@ class Command
     @depreciated=str
   end
 
-  def arg_processor(&block)
-    @argument_processor=block
+  def arg_processor(method=nil,&block)
+    raise CommandError.new("arg_processor cannot be passed a method and a block") if !method.nil? && !block.nil?
+
+    if !method.nil?
+      @argument_processor=method
+    else
+      @argument_processor=block
+    end
   end
 
   def set_arg_processor(method)
+    deprecate_function("arg_processor")
     @argument_processor=method
   end
 
@@ -363,7 +366,26 @@ class Command
   end
 
   def set_tokenizer(tokenizer)
+    deprecate_function("tokenizer")
     @tokenizer=tokenizer
+  end
+
+  def tokenizer(tokenizer=nil,&tokenizer_method)
+    #Check to see that tokenizer is a descendant of Tokenizer
+    #Returns False or nil if for negative results
+    if !tokenizer.nil? && (tokenizer <= Tokenizer)
+      @tokenizer=tokenizer
+    else
+      p tokenizer
+      raise CommandError.new("Tokenizer must be a descendant of the Tokenizer Class")
+    end
+
+    if tokenizer_method
+      if tokenizer_method.arity!=1
+        CommandError.new("Tokenizer blocks require an arity of one")
+      end
+      @tokenizer_method=tokenizer_method
+    end
   end
 
   #--
@@ -416,13 +438,19 @@ class Command
     end
   end
 
-  def call_arg_processor(parameters)
+  def call_tokenizer(parameters)
     debug(6,:msg=>"parameters",:var=>"\"#{parameters.to_s}\"")
     debug(7,:msg=>"Using tokenizer", :var=>@tokenizer.to_s)
-    tokenized_parameters=@tokenizer.new(parameters).parse
+    tokenized_parameters=@tokenizer.new(parameters)
+    tokenized_parameters=@tokenizer_method.call(tokenized_parameters) if @tokenizer_method
     debug(7,:msg=>"Tokenized Parameters",:var=>tokenized_parameters)
-    check_parameters(tokenized_parameters)
-    @arguments=Arguments.new(tokenized_parameters, @flags)
+    tokenized_parameters.parse
+  end
+
+  def call_arg_processor(parameters)
+    debug(6,:msg=>"parameters",:var=>"\"#{parameters.to_s}\"")
+    check_parameters(parameters)
+    @arguments=Arguments.new(parameters, @flags)
     debug(6,:var=>@arguments)
     @arguments
   end

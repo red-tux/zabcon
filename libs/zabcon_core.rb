@@ -184,6 +184,7 @@ class ZabconCore
     }
   end
 
+
   def start
     debug(5,:msg=>"Entering main zabcon start routine")
     puts "Welcome to Zabcon.  Build Number: #{REVISION}"  if env["echo"]
@@ -194,10 +195,10 @@ class ZabconCore
         while line=@input.get_line()
           #tokens=ExpressionTokenizer.new(line)
           tokens=CommandTokenizer.new(line)
-#          line=line.strip_comments
-          tokens.delete_if {|item| item.kind==:comment}
-          next if line.nil?
-          next if line.strip.length==0  # don't bother parsing an empty line'
+
+          tokens.delete_if {|item| item.kind==:comment }
+          next if tokens.nil? || tokens.first.kind==:end ||
+              (tokens.first.kind==:whitespace && tokens[1].kind==:end)
           debug(6, :var=>line, :msg=>"Input from user")
 
           commands=ZabconExecuteContainer.new(tokens)

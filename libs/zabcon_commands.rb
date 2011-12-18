@@ -49,7 +49,7 @@ ZabconCommand.add_command "help" do
   end
 #  set_flag :array_params
   set_help_tag :help
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "help commands" do
@@ -71,7 +71,12 @@ ZabconCommand.add_command "login" do
   end
   set_help_tag :help
 #  set_flag :array_params
-  set_tokenizer SimpleTokenizer
+  tokenizer(SimpleTokenizer.options(:remove_whitespace))
+  #arg_processor do |arg|
+  #  puts "arg_processor method"
+  #  p arg
+  #  arg
+  #end
 end
 
 ZabconCommand.add_command "logout" do
@@ -124,7 +129,7 @@ ZabconCommand.add_command "set debug" do
   depreciated "set env debug=N"
 #  set_flag :array_params
   set_help_tag :set_debug
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set lines" do
@@ -134,7 +139,7 @@ ZabconCommand.add_command "set lines" do
   depreciated "set env lines=N"
 #  set_flag :array_params
   set_help_tag :set_lines
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set pause" do
@@ -155,7 +160,7 @@ ZabconCommand.add_command "set pause" do
   end
 #  set_flag :array_params
   set_help_tag :set_pause
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "show var" do
@@ -180,7 +185,7 @@ ZabconCommand.add_command "show var" do
   end
   set_help_tag :show_var
 #  set_flag :array_params
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "show env" do
@@ -205,7 +210,7 @@ ZabconCommand.add_command "show env" do
   end
   set_help_tag :show_env
 #  set_flag :array_params
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "set var" do
@@ -235,7 +240,7 @@ ZabconCommand.add_command "unset var" do
   end
 #  set_flag :array_params
   set_help_tag :unset_var
-  set_tokenizer SimpleTokenizer
+  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "show revisions" do
@@ -280,8 +285,8 @@ ZabconCommand.add_command "raw api" do
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
-  set_tokenizer CommandTokenizer
-#  set_tokenizer SimpleTokenizer
+  tokenizer CommandTokenizer
+#  tokenizer SimpleTokenizer
 end
 
 ZabconCommand.add_command "raw json" do
@@ -310,7 +315,7 @@ ZabconCommand.add_command "raw json" do
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
-  set_tokenizer SimpleTokenizerString
+  tokenizer SimpleTokenizerString
 end
 
 ###############################################################################

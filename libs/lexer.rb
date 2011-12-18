@@ -32,6 +32,26 @@ require 'libs/zabcon_exceptions'
 #require 'zbxapi/exceptions'
 #require "zbxapi/zdebug"
 
+class InvalidCharacterSuper <ZabconError
+  attr_accessor :invalid_char, :invalid_str, :position
+
+  def initialize(message=nil, params={})
+    super(message,params)
+    @message=message || "Invalid Character"
+    @position=params[:position] || nil
+    @invalid_char=params[:invalid_char] || nil
+    @invalid_str=params[:invalid_str] || raise(RuntimeError.new(":invalid_str required",:retry=>false))
+  end
+
+  def show_message
+    preamble="#{@message}  \"#{@invalid_char}\" : "
+    pointer="^".rjust(@position+preamble.length+1)
+    puts preamble+@invalid_str
+    puts pointer
+  end
+end
+
+
 #This is a wrapper class for creating a generalized lexer.
 class Lexr
 
@@ -92,7 +112,7 @@ class Lexr
       @res = rule.match(unprocessed_text)
 		  next unless @res
 
-      raise Lexr::UnmatchableTextError.new(rule.raises, @position) if @res and rule.raises?
+      raise Lexr::UnmatchableTextError.new(rule.raises, :position=>@position,:invalid_str=>@text) if @res and rule.raises?
 
 		  @position += @res.characters_matched
 		  return self.next if rule.ignore?
@@ -103,7 +123,7 @@ class Lexr
       @position += @res.characters_matched
       return @current = @res.token
     end
-		raise Lexr::UnmatchableTextError.new(unprocessed_text[0..0], @position)
+		raise Lexr::UnmatchableTextError.new(unprocessed_text[0..0], :position=>@position,:invalid_str=>@text)
 	end
 
 	def end?
@@ -121,10 +141,11 @@ class Lexr
 	end
 
 	class Token
-		attr_reader :value, :kind
+		attr_reader :value, :kind, :opts
 
-		def initialize(value, kind = nil)
-			@value, @kind = value, kind
+		def initialize(value, kind = nil, opts={})
+#			@opts, @value, @kind = value, kind, opts
+      @value, @kind, @opts = value, kind, opts
 		end
 
 		def self.method_missing(sym, *args)
@@ -249,16 +270,24 @@ class Lexr
 
 	end
 
-	class UnmatchableTextError < StandardError
-		attr_reader :character, :position
+	class UnmatchableTextError < InvalidCharacterSuper
 
-		def initialize(character, position)
-			@character, @position = character, position
+		def initialize(message=nil, params={})
+      params[:retry]||=true
+      params[:invalid_char]=params[:invalid_str][params[:position]]
+      super(message,params)
 		end
 
 		def message
-			"Unexpected character '#{character}' at position #{position + 1}"
-		end
+			"#{@message} '#{@invalid_char}' at position #{position + 1}"
+    end
+
+    def show_message
+      preamble="#{@message}  : "
+      pointer="^".rjust(@position+preamble.length+1)
+      puts preamble+@invalid_str
+      puts pointer
+    end
 
 		def inspect
 			message
@@ -291,6 +320,7 @@ end
 
 ExpressionLexer = Lexr.setup {
   matches /\\/ => :escape
+#  matches /\\\"/ =>
   matches /\$[\w]+/ => :variable
   matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
   matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
@@ -302,6 +332,7 @@ ExpressionLexer = Lexr.setup {
   matches "]" => :r_square, :decrement=>:square
   matches "," => :comma
   matches /\s+/ => :whitespace
+  matches /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ => :ipv4
   matches /[-+]?\d*\.\d+/ => :number, :convert_with => lambda { |v| Float(v) }
   matches /[-+]?\d+/ => :number, :convert_with => lambda { |v| Integer(v) }
   matches "=" => :equals
@@ -316,6 +347,7 @@ CommandLexer = Lexr.setup {
   matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
   matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
   matches /\s+/ => :whitespace
+  matches /\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/ => :ipv4
   matches /[-+]?\d*\.\d+/ => :number, :convert_with => lambda { |v| Float(v) }
   matches /[-+]?\d+/ => :number, :convert_with => lambda { |v| Integer(v) }
   matches "=" => :equals
@@ -345,23 +377,7 @@ class Tokenizer < Array
     end
   end
 
-  class InvalidCharacter <ZabconError
-    attr_accessor :invalid_char, :invalid_str, :position
-
-    def initialize(message=nil, params={})
-      super(message,params)
-      @message=message || "Invalid Character"
-      @position=params[:position] || nil
-      @invalid_char=params[:invalid_char] || nil
-      @invalid_str=params[:invalid_str] || raise(RuntimeError.new(":invalid_str required",:retry=>false))
-    end
-
-    def show_message
-      preamble="#{@message}  \"#{@invalid_char}\" : "
-      pointer="^".rjust(@position+preamble.length+1)
-      puts preamble+@invalid_str
-      puts pointer
-    end
+  class InvalidCharacter <InvalidCharacterSuper
   end
 
   attr_accessor :parsed
@@ -380,12 +396,40 @@ class Tokenizer < Array
     debug(8,:msg=>"Tokens",:var=>self)
     debug(8,:msg=>"Tokens(Length)",:var=>length)
     @available_tokens=args[:lexer].available_tokens
+    @class_options||=[]
+
+    if @class_options.include?(:remove_whitespace)
+      delete_if do |i|
+        i.kind==:whitespace
+      end
+    end
+
   end
 
   def parse(args={})
     raise BaseClassError.new
   end
 
+  #Creates a factory to dynamicly generate a new descendant object with
+  #the options passed in, which are available via the variable @class_options
+  #*options : array of symbols
+  def self.options(*options)
+    if options.nil?
+      self
+    else
+      class_name=self.to_s+"_"+options.map {|i| i.to_s}.join
+      str =<<-EOF
+        class #{class_name} < self
+          def initialize(str,args={})
+            @class_options=#{options.inspect}
+            super(str,args)
+          end
+        end
+      EOF
+      eval(str)
+      eval(class_name)
+    end
+  end
 end
 
 class BasicExpressionTokenizer < Tokenizer

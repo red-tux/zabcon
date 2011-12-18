@@ -1,4 +1,9 @@
 **** 11/23/11 nelsonab
+* Minor input parser modifications.  Will not barf on inputs like the following:
+  >      #comment
+* Code cleanup (removed old comments etc)
+
+**** 11/23/11 nelsonab 0.0.350
 * Added revision file and command to display revision information
   "show revision"
 * Added support for multiple custom command files.
@@ -7,3 +12,6 @@
    http://trac.red-tux.net/browser/trunk/ruby/zabcon/zabcon.conf.default
 * Fixed Raw JSON support
   variable substitution currently not working.
+
+**** 12/09/11 nelsonab
+* Bumped zbxapi version dependency to 0.1.352
