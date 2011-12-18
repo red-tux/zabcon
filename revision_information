@@ -22,3 +22,4 @@
 * Added deprecate_function to Command class
   Will show a warning message with new function name to use along with
   command file path and line numbers/command name
+* Fixed Ruby version check for 1.9.x

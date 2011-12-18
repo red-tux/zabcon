@@ -58,6 +58,8 @@ for i in 0..items-1 do
     puts
     exit(1)
   end
+  #If this step is higher than the required version break out of loop
+  break if ruby_rev[i].to_i>required_rev[i].to_i
 end
 
 
