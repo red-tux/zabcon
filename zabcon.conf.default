@@ -1,5 +1,5 @@
 server=http://localhost
-username=admin
+username=Admin
 password=zabbix
 
 # The following is a list of user editable config file options, the following
