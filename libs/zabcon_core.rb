@@ -60,7 +60,25 @@ class ZabconCore
     #TODO Remove reference to ArgumentProcessor when new command objects in use
     debug(5,:msg=>"Setting up ArgumentProcessor")
 
-    if !env["server"].nil? and !env["username"].nil? and !env["password"].nil? then
+    loaded_session=false
+    begin
+      if !env["server"].nil? && !env["session_file"].nil? &&
+          !env["session_file"].empty?
+        path=File.expand_path(env["session_file"])
+        puts "Attempting to load previous session key from #{env["session_file"]}" if env["echo"]
+        yaml=YAML::load(File.open(path))
+        loaded_session=ZabbixServer.instance.use_auth(yaml["auth"])
+        puts "#{env["server"]} connected"  if env["echo"]
+        puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
+      end
+    rescue Errno::ENOENT
+      puts "Failed to load previous session key" if env["echo"]
+    rescue ZbxAPI_ExceptionLoginPermission
+      puts "Failed to load previous session key" if env["echo"]
+    end
+
+    if !loaded_session && !env["server"].nil? &&
+      !env["username"].nil? && !env["password"].nil?
       puts "Found valid login credentials, attempting login"  if env["echo"]
       begin
         ZabbixServer.instance.login

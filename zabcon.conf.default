@@ -8,6 +8,12 @@ password=zabbix
 # Set the debug level.  0=off
 #debug=0
 
+#Where will the login session information be stored.
+#If a valid session is found, it's credentials will be tried first
+#thus speeding up the login/connection process.
+#Leave empty to disable.
+#session_file=~/zabcon.session
+
 # Attempt to show help for a bad command.
 #show_help=false
 

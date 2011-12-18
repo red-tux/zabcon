@@ -147,6 +147,12 @@ class ZabconApp
       opts.on("-d", "--debug LEVEL", Integer, "Specify debug level (Overrides config","file)") do |level|
         @cmd_opts.debug=level
       end
+      opts.on("-s","--session PATH","Path to the file to store session information.") do |session|
+        @cmd.session_file=session
+      end
+      opts.on("--no-session","Disable checking of the session file on startup") do
+        @cmd.session_file=""
+      end
       opts.on("-e", "--[no-]echo", "Enable startup echo.  Default is on ","for interactive") do |echo|
         @cmd_opts.echo=echo
       end
@@ -178,6 +184,7 @@ class ZabconApp
     env["load_config"]=true
     env["truncate_length"]=5000
     env["custom_commands"]=nil
+    env["session_file"]="~/zabcon.session"
 
     #output related environment variables
     env["table_output"]=STDIN.tty?   # Is the output a well formatted table, or csv like?

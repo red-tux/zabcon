@@ -23,3 +23,7 @@
   Will show a warning message with new function name to use along with
   command file path and line numbers/command name
 * Fixed Ruby version check for 1.9.x
+* Added session loading. Zabcon will save the auth key upon login to a file
+  which is determined by the config file option "session_file".  When starting
+  this file is interrogated if an auth key is found, Zabcon will try to use it.
+  If the auth key does not work it continues with the normal startup sequence.

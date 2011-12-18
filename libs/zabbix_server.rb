@@ -31,6 +31,8 @@ class ZabbixServer_overload < ZabbixAPI
   alias zbxapi_initialize initialize
   alias zbxapi_do_request do_request
 
+  attr_accessor :major, :minor
+
   def initialize(url,debug_level=0)
     @env = env
     zbxapi_initialize(url,debug_level)
@@ -94,6 +96,13 @@ class ZabbixServer
     puts "#{@server_url} connected"  if env["echo"]
     puts "API Version: #{@version}"  if env["echo"]
 
+    if env["session_file"] && !env["session_file"].empty?
+      path=File.expand_path(env["session_file"])
+      File.open(path,"w") do |f|
+        f.write({"auth"=>@connection.auth}.to_yaml)
+      end
+    end
+
   end
 
   def logout
@@ -109,6 +118,20 @@ class ZabbixServer
       GlobalVars.instance.delete("auth")
       puts "Logout complete from #{@server_url}" if env["echo"]
     end
+  end
+
+  def use_auth(auth)
+    @server_url = @server_url.nil? ? env["server"] : @server_url
+
+    @connection = ZabbixServer_overload.new(@server_url,env["debug"])
+    @connection.auth=auth
+    major,minor=@connection.do_request(@connection.json_obj('APIInfo.version',{}))['result'].split('.')
+    @connection.major=major.to_i
+    @connection.minor=minor.to_i
+    @version=@connection.API_version
+    @connected=true
+
+    true
   end
 
   def loggedin?

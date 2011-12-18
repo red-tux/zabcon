@@ -82,6 +82,11 @@ end
 ZabconCommand.add_command "logout" do
   set_method do
     server.logout
+    path=File.expand_path(env["session_file"])
+    begin
+      File.delete(path)
+    rescue Errno::ENOENT
+    end
   end
   set_help_tag :logout
 end
@@ -408,7 +413,8 @@ end
 
 ZabconCommand.add_command "add host group" do
   set_method do |params|
-    server.connection.hostgroup.create(params)
+    groupid = server.connection.hostgroup.create(params)
+    "Created host groupid: #{groupid["groupids"]}"
   end
   set_flag :login_required
   set_flag :print_output
@@ -519,7 +525,7 @@ ZabconCommand.add_command "delete user" do
     else
       id=params["id"]
     end
-    result=@connection.user.delete(id)
+    result=server.connection.user.delete(id)
 
     if !result.empty?
       puts "Deleted user id #{result["userids"]}"
@@ -564,7 +570,7 @@ ZabconCommand.add_command "update user" do
       elsif parameters["userid"].nil?
         puts "Missing required userid statement."
       end
-      @connection.user.update([parameters])
+      server.connection.user.update([parameters])
     end
   end
   set_valid_args 'userid','name', 'surname', 'alias', 'passwd', 'url',
