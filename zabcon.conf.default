@@ -61,9 +61,9 @@ password=zabbix
 #show_load=all
 
 #dir1=custom_commands
-#If custom_commands is a directory in /usr/local/zabcon all files i that
+#If custom_commands is a directory in /usr/local/zabcon all files in that
 #directory, except (dot) files, will be loaded because the base search
-#path is /usr/loca/zabcon
+#path is /usr/local/zabcon
 
 #dir2=~/zabcon_commands
 #file1=~/my_zabcon_commands.rb
