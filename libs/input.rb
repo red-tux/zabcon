@@ -18,8 +18,8 @@
 
 ##########################################
 # Subversion information
-# $Id: input.rb 215 2010-09-25 21:22:37Z richlv $
-# $Revision: 215 $
+# $Id$
+# $Revision$
 ##########################################
 
 require 'readline'
