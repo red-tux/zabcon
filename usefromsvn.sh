@@ -9,7 +9,9 @@
 #cd zabcon
 
 ln -s ../api/zbxapi.rb zbxapi.rb
+ln -s ../api/zbxapi zbxapi
 cd libs
 ln -s ../api/libs/api_exceptions.rb api_exceptions.rb
 ln -s ../api/libs/exceptions.rb exceptions.rb
 ln -s ../api/libs/zdebug.rb zdebug.rb
+cd -
