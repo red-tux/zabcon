@@ -58,48 +58,8 @@ class ZabconCore
     debug(5,:msg=>"Setting up help")
     CommandHelp.setup("english")
 
-    #TODO Remove reference to ArgumentProcessor when new command objects in use
-    debug(5,:msg=>"Setting up ArgumentProcessor")
-
-    loaded_session=false
-    begin
-      if !env["session_file"].nil? && !env["session_file"].empty?
-        path=File.expand_path(env["session_file"])
-#        puts "Attempting to load previous session keys from #{env["session_file"]}" if env["echo"]
-        yaml=YAML::load(File.open(path))
-        if yaml["auth"]
-          yaml["auth"].each {|k,v|
-            ServerCredentials.instance[k]["auth"]=v
-          }
-        end
-        credentials=ServerCredentials.instance[env["default_server"]]
-        if credentials["auth"]
-          puts "Attempting to use previous key" if env["echo"]
-          loaded_session=ZabbixServer.instance.use_auth(credentials)
-          puts "#{env["server"]} connected"  if env["echo"]
-          puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
-        end
-      end
-    rescue Errno::ENOENT
-      puts "Failed to load previous session key" if env["echo"]
-    rescue ZbxAPI_ExceptionLoginPermission
-      puts "Failed to load previous session key" if env["echo"]
-    end
-
-
-    if !loaded_session && !credentials["server"].nil? &&
-      !credentials["username"].nil? && !credentials["password"].nil?
-      puts "Found valid login credentials, attempting login"  if env["echo"]
-      begin
-
-        ZabbixServer.instance.login(credentials)
-
-      rescue ZbxAPI_ExceptionBadAuth => e
-        puts e.message
-      rescue ZbxAPI_ExceptionLoginPermission
-        puts "Error Invalid login or no API permissions."
-      end
-    end
+    server_login unless env["no_login"]
+    env.delete("no_login") if env["no_login"]
 
     debug(5,:msg=>"Setting up prompt")
     @debug_prompt=false
@@ -174,6 +134,53 @@ class ZabconCore
     end
 
     debug(5,:msg=>"Setup complete")
+  end
+
+  def server_login
+    loaded_session=false
+    begin
+      if !env["session_file"].nil? && !env["session_file"].empty?
+        path=File.expand_path(env["session_file"])
+#        puts "Attempting to load previous session keys from #{env["session_file"]}" if env["echo"]
+        yaml=YAML::load(File.open(path))
+        if yaml["auth"]
+          yaml["auth"].each {|k,v|
+            if v.nil?  #cleanup for old auth file
+              k="global"
+              v=k
+            end
+            ServerCredentials.instance[k]["auth"]=v
+          }
+        end
+        credentials=ServerCredentials.instance[env["default_server"]]
+        if credentials["auth"]
+          puts "Attempting to use previous key" if env["echo"]
+          loaded_session=ZabbixServer.instance.use_auth(credentials)
+          puts "#{env["server"]} connected"  if env["echo"]
+          puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
+        end
+      end
+    rescue Errno::ENOENT
+      puts "Failed to load previous session key" if env["echo"]
+    rescue ZbxAPI_ExceptionLoginPermission
+      puts "Failed to load previous session key" if env["echo"]
+    end
+
+
+    if !loaded_session && !credentials["server"].nil? &&
+      !credentials["username"].nil? && !credentials["password"].nil?
+      puts "Found valid login credentials, attempting login"  if env["echo"]
+      begin
+
+        ZabbixServer.instance.login(credentials)
+
+      rescue ZbxAPI_ExceptionBadAuth => e
+        puts e.message
+      rescue ZbxAPI_ExceptionLoginPermission
+        puts "Error Invalid login or no API permissions."
+      end
+    end
+
   end
 
   def load_command_path(path,base_path=nil,show_load=nil)

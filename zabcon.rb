@@ -142,6 +142,12 @@ class ZabconApp
               "./zabcon.conf, ~/zabcon.conf in that","order") do |file|
         @cmd_opts.config_file=file
       end
+      opts.on("--no-login", "Do not automaticly log into Zabbix server on startup") do
+        @cmd_opts.no_login=true
+      end
+      opts.on("-S","--use-server SERVER","Log into the named server from the config file on startup") do |server|
+        @cmd_opts.default_server=server
+      end
       opts.on("--no-config", "Do not attempt to automatically load","the configuration file") do
         @cmd_opts.load_config=false
       end
