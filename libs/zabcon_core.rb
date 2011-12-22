@@ -235,29 +235,17 @@ class ZabconCore
         ZbxAPI_ParameterError, Command::LoginRequired => e
       puts e.message
       retry
-    #rescue Command::NonFatalError => e
-    #  puts e.message
-    #  retry
-    #rescue Command::ParameterError => e
-    #  puts e.message
-    #  retry
-    #rescue ZabbixServer::ConnectionProblem => e
-    #  puts e.message
-    #  retry
     rescue ParseError => e  #catch the base exception class
       e.show_message
       retry if e.retry?
-    #rescue ZbxAPI_ExceptionVersion => e
-    #  puts e
-    #  retry  # We will allow for graceful recover from Version exceptions
-    #rescue ZbxAPI_ExceptionBadAuth => e
-    #  puts e.message
-    #  retry
     rescue ZbxAPI_ExceptionLoginPermission
       puts "No login permissions"
       retry
     rescue ZbxAPI_ExceptionPermissionError
       puts "You do not have permission to perform that operation"
+      retry
+    rescue ZbxAPI_ExceptionBadServerUrl
+      puts "A Zabbix server was not found at that url"
       retry
     rescue ZbxAPI_GeneralError => e
       puts "An error was received from the Zabbix server"

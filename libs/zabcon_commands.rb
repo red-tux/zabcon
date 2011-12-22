@@ -79,6 +79,17 @@ ZabconCommand.add_command "login" do
   #end
 end
 
+ZabconCommand.add_command "set proxy" do
+  set_method do |params|
+    env["proxy_server"]=params[0]
+    env["proxy_port"]=params[1] || env["proxy_port"] || 3128
+    env["proxy_user"]=params[2]
+    env["proxy_password"]=params[3]
+  end
+  set_help_tag :set_proxy
+  tokenizer(SimpleTokenizer.options(:remove_whitespace))
+end
+
 ZabconCommand.add_command "logout" do
   set_method do
     server.logout

@@ -42,7 +42,7 @@ DEPENDENCIES={
   "parseconfig"=>true,
   "json"=>true,
   "highline"=>true,
-  "zbxapi"=>Gem::Version.new("0.1.352")
+  "zbxapi"=>Gem::Version.new("0.1.369")
 }
 
 
@@ -175,6 +175,10 @@ class ZabconApp
     env["server"]=nil
     env["username"]=nil
     env["password"]=nil
+    env["proxy_server"]=nil
+    env["proxy_port"]=3128
+    env["proxy_user"]=nil
+    env["proxy_password"]=nil
     env["lines"]=24
     env["language"]="english"
     env["logged_in"]=false

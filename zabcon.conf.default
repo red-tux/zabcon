@@ -2,6 +2,14 @@ server=http://localhost
 username=Admin
 password=zabbix
 
+#Use the following to enable proxy server support
+#Only "proxy_server" is required to enable proxy support
+#default values are shown
+#proxy_server=
+#proxy_port=3128
+#proxy_user=
+#proxy_password=
+
 # The following is a list of user editable config file options, the following
 # values are the defaults.  These can be changed as needed.
 

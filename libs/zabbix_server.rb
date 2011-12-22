@@ -90,6 +90,12 @@ class ZabbixServer
     raise ConnectionProblem.new(error_msg.join(", ")) if !error_msg.empty?
 
     @connection = ZabbixServer_overload.new(@server_url,env["debug"])
+    if env["proxy_server"]
+      puts "proxy server"
+      p env["proxy_server"],env["proxy_port"],env["proxy_user"],env["proxy_password"]
+      @connection.set_proxy(env["proxy_server"],env["proxy_port"],
+            env["proxy_user"],env["proxy_password"])
+    end
     @connection.login(@username,@password)
     @connected=true
     GlobalVars.instance["auth"]=@connection.auth
