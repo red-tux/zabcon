@@ -64,10 +64,18 @@ end
 ZabconCommand.add_command "login" do
   set_method do |params|
 #    login server username password
-    server.server_url=params[0]
-    server.username=params[1]
-    server.password=params[2]
-    server.login
+    servers=ServerCredentials.instance
+    if servers[params[0]]
+      creds=servers[params[0]]
+    elsif params.length==0
+      creds=servers["global"]
+    else
+      creds=servers["global"].select_keys(["proxy_server",
+                "proxy_port","proxy_user","proxy_password"])
+      creds.merge!({"server"=>params[0],"username"=>params[1],
+          "password"=>params[2]})
+    end
+    server.login(creds)
   end
   set_help_tag :help
 #  set_flag :array_params
@@ -93,11 +101,11 @@ end
 ZabconCommand.add_command "logout" do
   set_method do
     server.logout
-    path=File.expand_path(env["session_file"])
-    begin
-      File.delete(path)
-    rescue Errno::ENOENT
-    end
+    #path=File.expand_path(env["session_file"])
+    #begin
+    #  File.delete(path)
+    #rescue Errno::ENOENT
+    #end
   end
   set_help_tag :logout
 end
@@ -227,6 +235,30 @@ ZabconCommand.add_command "show env" do
   set_help_tag :show_env
 #  set_flag :array_params
   tokenizer SimpleTokenizer
+end
+
+ZabconCommand.add_command "show credentials" do
+  set_method do |params|
+    if params.empty?
+      if ServerCredentials.instance.empty?
+        puts "No Server Credentials Defined"
+      else
+        ServerCredentials.instance.each{|k,v|
+          puts "#{k} : #{v.inspect}"
+        }
+      end
+    else
+      params.each {|item|
+        if ServerCredentials.instance[item].nil?
+          puts "#{item} is not a valid server name"
+        else
+          puts "#{item} : #{ServerCredentials.instance[item].inspect}"
+        end
+      }
+    end
+  end
+  set_help_tag :show_credentials
+  tokenizer(SimpleTokenizer.options(:remove_whitespace))
 end
 
 ZabconCommand.add_command "set var" do

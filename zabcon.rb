@@ -97,6 +97,7 @@ require 'ostruct'
 require 'strscan'
 require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
+require 'parseconfig'
 
 if RUBY_VERSION=="1.8.6"  #Ruby 1.8.6 lacks the each_char function in the string object, so we add it here
   String.class_eval do
@@ -189,6 +190,7 @@ class ZabconApp
     env["truncate_length"]=5000
     env["custom_commands"]=nil
     env["session_file"]="~/zabcon.session"
+    env["default_server"]="global"
 
     #output related environment variables
     env["table_output"]=STDIN.tty?   # Is the output a well formatted table, or csv like?
@@ -196,6 +198,71 @@ class ZabconApp
     env["table_separator"]=","
 
   end
+  #overrides is a hash of options which will override what is found in the config file.
+  #useful for command line options.
+  #if there is a hash called "config_file" this will override the default config file.
+  def load_config(overrides={})
+    begin
+      config_file = overrides["config_file"] || env["config_file"]
+
+      if config_file==:default
+        home_default=File::expand_path("~/zabcon.conf")
+        if File::exists?("zabcon.conf")
+          config_file="zabcon.conf"
+        elsif File::exists?(home_default)
+          config_file=home_default
+          env["config_file"]=home_default
+        else
+          raise "NoConfig"
+        end
+      end
+
+      config = overrides["load_config"]==false ?   # nil != false
+          {} : ParseConfig.new(config_file).params
+
+      # If we are not loading the config use an empty hash
+    rescue Errno::EACCES
+      if !(config_file=="zabcon.conf" and !File::exists?(config_file))
+        puts "Unable to access configuration file: #{config_file}"
+      end
+      config={}
+    rescue String=>e
+      if e=="NoConfig"
+        puts "Unable to find a default configuration file"
+        config={}
+      else
+        raise e
+      end
+    end
+
+    config.merge!(overrides)  # merge the two option sets together but give precedence
+                              # to command line options
+
+    server_keys=["server","username","password","proxy_server",
+                "proxy_port","proxy_user","proxy_password"]
+
+    ServerCredentials.instance["global"]=config.select_keys(server_keys).merge({"name"=>"global"})
+
+    config.delete_keys(server_keys)
+
+
+    config.each_pair { |k,v|
+      if k.match(/(.+)\[(.+)\]\[(.+)\]/)
+        if $1.downcase=="server"
+          ServerCredentials.instance[$2] ||= {"name"=>$2}
+          ServerCredentials.instance[$2].merge!($3=>v)
+        else
+          env[$1] ||= {}
+          env[$1][$2] ||= {}
+          env[$1][$2].merge({$3=>v})
+        end
+      else
+        env[k]=v
+      end
+    }
+
+  end
+
 
   #checks to ensure all dependencies are available, forcefully exits with an
   # exit code of 1 if the dependency check fails
@@ -213,7 +280,7 @@ class ZabconApp
         cmd_hash[k.to_s]=v
       end
 
-      EnvVars.instance.load_config(cmd_hash)
+      load_config(cmd_hash)
 
     rescue OptionParser::InvalidOption  => e
       puts e

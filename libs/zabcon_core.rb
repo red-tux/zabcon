@@ -63,14 +63,22 @@ class ZabconCore
 
     loaded_session=false
     begin
-      if !env["server"].nil? && !env["session_file"].nil? &&
-          !env["session_file"].empty?
+      if !env["session_file"].nil? && !env["session_file"].empty?
         path=File.expand_path(env["session_file"])
-        puts "Attempting to load previous session key from #{env["session_file"]}" if env["echo"]
+#        puts "Attempting to load previous session keys from #{env["session_file"]}" if env["echo"]
         yaml=YAML::load(File.open(path))
-        loaded_session=ZabbixServer.instance.use_auth(yaml["auth"])
-        puts "#{env["server"]} connected"  if env["echo"]
-        puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
+        if yaml["auth"]
+          yaml["auth"].each {|k,v|
+            ServerCredentials.instance[k]["auth"]=v
+          }
+        end
+        credentials=ServerCredentials.instance[env["default_server"]]
+        if credentials["auth"]
+          puts "Attempting to use previous key" if env["echo"]
+          loaded_session=ZabbixServer.instance.use_auth(credentials)
+          puts "#{env["server"]} connected"  if env["echo"]
+          puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
+        end
       end
     rescue Errno::ENOENT
       puts "Failed to load previous session key" if env["echo"]
@@ -78,11 +86,13 @@ class ZabconCore
       puts "Failed to load previous session key" if env["echo"]
     end
 
-    if !loaded_session && !env["server"].nil? &&
-      !env["username"].nil? && !env["password"].nil?
+
+    if !loaded_session && !credentials["server"].nil? &&
+      !credentials["username"].nil? && !credentials["password"].nil?
       puts "Found valid login credentials, attempting login"  if env["echo"]
       begin
-        ZabbixServer.instance.login
+
+        ZabbixServer.instance.login(credentials)
 
       rescue ZbxAPI_ExceptionBadAuth => e
         puts e.message

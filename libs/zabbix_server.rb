@@ -60,16 +60,41 @@ class ZabbixServer
     end
   end
 
-  attr_accessor :server_url, :username, :password
+#  attr_accessor :server_url, :username, :password
   attr_reader :version, :connected, :connection
 
   def initialize
-    @server_url=nil
-    @username=nil
-    @password=nil
+    @credentials={}
+    #@server_url=nil
+    #@username=nil
+    #@password=nil
     @connected=false
     @version=nil
     @connection=nil
+  end
+
+  def server_url
+    @credentials["server"]
+  end
+
+  def server_url=(server)
+    @credentials["server"]=server
+  end
+
+  def username
+    @credentials["username"]
+  end
+
+  def username=(username)
+    @credentials["username"]=username
+  end
+
+  def password
+    @credentials["password"]
+  end
+
+  def password=(password)
+    @credentials["password"]=password
   end
 
   #login
@@ -77,40 +102,33 @@ class ZabbixServer
   # If the object variables url, username, and password have not been
   # set previously, an attempt will be made to use the global environment
   # variables.  If that does not work an exception will be raised.
-  def login
-    @server_url = @server_url.nil? ? env["server"] : @server_url
-    @username = @username.nil? ? env["username"] : @username
-    @password = @password.nil? ? env["password"] : @password
+  def login(server={})
+    @credentials.merge!(server)
+    #@server_url = server["server"] || @server_url
+    #@username = server["username"] || @username
+    #@password = server["password"] || @password
 
     error_msg=[]
-    error_msg<<"Url not set" if @server_url.nil?
-    error_msg<<"Username not set" if @username.nil?
-    error_msg<<"Password not set" if @password.nil?
+    error_msg<<"Url not set" if !@credentials["server"]
+    error_msg<<"Username not set" if !@credentials["username"]
+    error_msg<<"Password not set" if !@credentials["password"]
 
     raise ConnectionProblem.new(error_msg.join(", ")) if !error_msg.empty?
 
-    @connection = ZabbixServer_overload.new(@server_url,env["debug"])
-    if env["proxy_server"]
-      puts "proxy server"
-      p env["proxy_server"],env["proxy_port"],env["proxy_user"],env["proxy_password"]
-      @connection.set_proxy(env["proxy_server"],env["proxy_port"],
-            env["proxy_user"],env["proxy_password"])
+    @connection = ZabbixServer_overload.new(@credentials["server"],env["debug"])
+    if @credentials["proxy_server"]
+      @connection.set_proxy(@credentials["proxy_server"],@credentials["proxy_port"],
+            @credentials["proxy_user"],@credentials["proxy_password"])
     end
-    @connection.login(@username,@password)
+    @connection.login(@credentials["username"],@credentials["password"])
     @connected=true
-    GlobalVars.instance["auth"]=@connection.auth
+    ServerCredentials.instance[@credentials["name"]]["auth"]=
+        @connection.auth
     @version=@connection.API_version
     puts "#{@server_url} connected"  if env["echo"]
     puts "API Version: #{@version}"  if env["echo"]
 
-    if env["session_file"] && !env["session_file"].empty?
-      path=File.expand_path(env["session_file"])
-      File.open(path,"w") do |f|
-        f.write({"auth"=>@connection.auth}.to_yaml)
-      end
-      #Enforce that the auth cache file isn't world readable
-      File.chmod(0600,path)
-    end
+    save_auth
 
   end
 
@@ -124,16 +142,41 @@ class ZabbixServer
       @connection=nil
       @connected=false
       @version=nil
+
+      if @credentials["name"]
+        ServerCredentials.instance[@credentials["name"]].delete("auth")
+      end
       GlobalVars.instance.delete("auth")
-      puts "Logout complete from #{@server_url}" if env["echo"]
+      save_auth
+      puts "Logout complete from #{server_url}" if env["echo"]
     end
   end
 
-  def use_auth(auth)
-    @server_url = @server_url.nil? ? env["server"] : @server_url
+  def save_auth
+    if env["session_file"] && !env["session_file"].empty?
+      path=File.expand_path(env["session_file"])
+      creds={}
+      ServerCredentials.instance.each {|name,values|
+        creds[name]=values["auth"] if values["auth"]
+      }
+      File.open(path,"w") do |f|
+        f.write({"auth"=>creds}.to_yaml)
+      end
+      #Enforce that the auth cache file isn't world readable
+      File.chmod(0600,path)
+    end
 
-    @connection = ZabbixServer_overload.new(@server_url,env["debug"])
-    @connection.auth=auth
+  end
+
+  def use_auth(server)
+    debug(6,:msg=>"Server",:var=>server)
+    @credentials.merge!(server)
+    debug(6,:msg=>"credentials",:var=>@credentials)
+
+#    @server_url = server["server"] || @server_url
+
+    @connection = ZabbixServer_overload.new(server_url,env["debug"])
+    @connection.auth=@credentials["auth"]
     major,minor=@connection.do_request(@connection.json_obj('APIInfo.version',{}))['result'].split('.')
     @connection.major=major.to_i
     @connection.minor=minor.to_i

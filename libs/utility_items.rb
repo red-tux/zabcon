@@ -29,6 +29,21 @@ Object.class_eval do
   end
 end
 
+Hash.class_eval do
+  def select_keys(keys)
+    result={}
+    keys.each {|k|
+      result.merge!({k=>self[k]})
+    }
+    result
+  end
+
+  def delete_keys(keys)
+    keys.each {|k|
+      self.delete(k)
+    }
+  end
+end
 
 String.class_eval do
 # String::split2(*options)

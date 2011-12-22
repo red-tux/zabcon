@@ -1,6 +1,7 @@
-server=http://localhost
-username=Admin
-password=zabbix
+#Uncomment the following to enable automatic server login
+#server=http://localhost
+#username=Admin
+#password=zabbix
 
 #Use the following to enable proxy server support
 #Only "proxy_server" is required to enable proxy support
@@ -9,6 +10,27 @@ password=zabbix
 #proxy_port=3128
 #proxy_user=
 #proxy_password=
+
+#It is possible to define "named" servers and log into them individually
+#Named servers do not inherit any values from the global default server,
+#and will not be logged into at startup by default.
+#The syntax is a follows:
+#server[name][parameter]=value
+#"global" is reserved and cannot be used in the config file
+#The string "server" is required, and will not be part of the server name
+#in Zabcon.  At a minimum values are required for server,username and password
+#The following example would be referenced as "colo1" in Zabcon
+#server[colo1][server]=http://zabbix.example.com/zabbix
+#server[colo1][username]=Admin
+#server[colo1][password]=zabbix
+#server[colo1][proxy_server]=localhost
+#server[colo1][proxy_port]=3128
+#server[colo1][proxy_user]=user_proxy
+#server[colo1][proxy_password]=password
+
+#Which server will zabcon log into by default?
+#The gloabl keyword denotes the default unnamed server options above.
+#default_server=global
 
 # The following is a list of user editable config file options, the following
 # values are the defaults.  These can be changed as needed.
