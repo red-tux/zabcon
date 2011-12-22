@@ -232,7 +232,7 @@ class ZabconCore
     rescue CommandList::InvalidCommand, Command::NonFatalError,
         Command::ParameterError, ZabbixServer::ConnectionProblem,
         ZbxAPI_ExceptionVersion, ZbxAPI_ExceptionBadAuth,
-        ZbxAPI_ParameterError => e
+        ZbxAPI_ParameterError, Command::LoginRequired => e
       puts e.message
       retry
     #rescue Command::NonFatalError => e

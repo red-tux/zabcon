@@ -480,7 +480,7 @@ class Command
 
     puts @depreciated if !@depreciated.nil?
     if !@flags.nil? && @flags[:login_required] && !server.connected?
-      raise LoginRequired.new("\"#{@command_name}\" requires an active login")
+      raise LoginRequired.new("\"#{@path.join(" ")}\" requires an active login")
     end
 
     @response.data=@cmd_method.call(parameters)
