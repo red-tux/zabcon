@@ -177,6 +177,11 @@ class ZabbixServer
 
     @connection = ZabbixServer_overload.new(server_url,env["debug"])
     @connection.auth=@credentials["auth"]
+    if @credentials["proxy_server"]
+      @connection.set_proxy(@credentials["proxy_server"],@credentials["proxy_port"],
+            @credentials["proxy_user"],@credentials["proxy_password"])
+    end
+
     major,minor=@connection.do_request(@connection.json_obj('APIInfo.version',{}))['result'].split('.')
     @connection.major=major.to_i
     @connection.minor=minor.to_i
