@@ -267,10 +267,14 @@ ZabconCommand.add_command "raw api" do
     params.delete_at(0)
     args={}
     if !params.empty?
-      args=ExpressionTokenizerHash.new(params.join(" ")).parse
+      params.each { |param|
+        if param.is_a?(Hash)
+          args.merge!(param)
+        else
+          raise Command::ParameterError.new("Unexpected parameter \"#{param}\"")
+        end
+      }
     end
-    #api_func=params[:method]
-    #params=params[:params]
     server.connection.raw_api(api_func, args)
   end
 

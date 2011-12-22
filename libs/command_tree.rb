@@ -439,7 +439,7 @@ class Command
   end
 
   def call_tokenizer(parameters)
-    debug(6,:msg=>"parameters",:var=>"\"#{parameters.to_s}\"")
+    debug(6,:msg=>"parameters",:var=>"\"#{parameters.inspect}\"")
     debug(7,:msg=>"Using tokenizer", :var=>@tokenizer.to_s)
     tokenized_parameters=@tokenizer.new(parameters)
     tokenized_parameters=@tokenizer_method.call(tokenized_parameters) if @tokenizer_method
@@ -448,7 +448,7 @@ class Command
   end
 
   def call_arg_processor(parameters)
-    debug(6,:msg=>"parameters",:var=>"\"#{parameters.to_s}\"")
+    debug(6,:msg=>"parameters",:var=>"\"#{parameters.inspect}\"")
     check_parameters(parameters)
     @arguments=Arguments.new(parameters, @flags)
     debug(6,:var=>@arguments)

@@ -30,3 +30,6 @@
 * Configured auth cache file to have permissions of 0600
 * Fixed crash with ZBXAPI_ParameterError
 * Fixed command line override for auth
+
+*** 12/21/11 nelsonab
+* Fixed Bug #89
