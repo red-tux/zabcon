@@ -104,9 +104,6 @@ class ZabbixServer
   # variables.  If that does not work an exception will be raised.
   def login(server={})
     @credentials.merge!(server)
-    #@server_url = server["server"] || @server_url
-    #@username = server["username"] || @username
-    #@password = server["password"] || @password
 
     error_msg=[]
     error_msg<<"Url not set" if !@credentials["server"]

@@ -164,6 +164,8 @@ class ZabconCore
       puts "Failed to load previous session key" if env["echo"]
     rescue ZbxAPI_ExceptionLoginPermission
       puts "Failed to load previous session key" if env["echo"]
+    rescue Errno::ECONNREFUSED
+      puts "Failed to load previous session key" if env["echo"]
     end
 
 
@@ -178,6 +180,8 @@ class ZabconCore
         puts e.message
       rescue ZbxAPI_ExceptionLoginPermission
         puts "Error Invalid login or no API permissions."
+      rescue ZbxAPI_ExceptionBadServerUrl
+        puts "Error connecting to server"   #TODO Fix message to show hostname
       end
     end
 

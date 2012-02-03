@@ -363,7 +363,7 @@ ZabconCommand.add_command "raw json" do
   #arg_processor do |params,args,flags|
   #  params
   #end
-  set_flag :login_required
+#  set_flag :login_required
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
