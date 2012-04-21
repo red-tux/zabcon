@@ -27,6 +27,10 @@ Object.class_eval do
   def env
     EnvVars.instance
   end
+
+  def vars
+    GlobalVars.instance
+  end
 end
 
 Hash.class_eval do

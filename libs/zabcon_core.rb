@@ -238,7 +238,28 @@ class ZabconCore
           #tokens=ExpressionTokenizer.new(line)
           tokens=CommandTokenizer.new(line)
 
-          tokens.delete_if {|item| item.kind==:comment }
+#          tokens.delete_if {|item| item.kind==:comment }
+          tokens.map!{|item|
+            case item.kind
+              when :comment
+                item=nil
+              when :variable
+                var_name=item.value[1..-1]
+                if var_name=="auth"
+                  item.set_value(ServerCredentials.instance[env["default_server"]]["auth"])
+                elsif env[var_name]
+                  item.set_value(env[var_name])
+                elsif vars[var_name]
+                  item.set_value(vars[var_name])
+                else
+                  raise ZbxAPI_ParameterError.new("Unknown Variable #{item.value}")
+                end
+                item
+              else
+                item
+            end
+          }.compact!
+
           next if tokens.nil? || tokens.first.kind==:end ||
               (tokens.first.kind==:whitespace && tokens[1].kind==:end)
           debug(6, :var=>line, :msg=>"Input from user")
