@@ -45,23 +45,12 @@ DEPENDENCIES={
   "zbxapi"=>Gem::Version.new("0.1.369")
 }
 
-
-required_rev=REQUIRED_RUBY_VER.split('.')
-ruby_rev=RUBY_VERSION.split('.')
-items=ruby_rev.length < required_rev.length ? ruby_rev.length : required_rev.length
-
-for i in 0..items-1 do
-  if ruby_rev[i].to_i<required_rev[i].to_i
-    puts
-    puts "Zabcon requires Ruby version #{required_rev.join('.')} or higher."
-    puts "you are using Ruby version #{RUBY_VERSION}."
-    puts
-    exit(1)
-  end
-  #If this step is higher than the required version break out of loop
-  break if ruby_rev[i].to_i>required_rev[i].to_i
+if RUBY_VERSION < REQUIRED_RUBY_VER
+  puts "Zabcon requires Ruby version #{REQUIRED_RUBY_VER} or higher."
+  puts "you are using Ruby version #{RUBY_VERSION}."
+  puts
+  exit(1)
 end
-
 
 depsok=true  #assume we will not fail dependencies
 
