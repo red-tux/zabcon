@@ -136,6 +136,7 @@ class ZabconCore
     debug(5,:msg=>"Setup complete")
   end
 
+  #TODO clean up and streamline with multiple server capabilities
   def server_login
     loaded_session=false
     begin
@@ -160,20 +161,20 @@ class ZabconCore
           puts "API Version: #{ZabbixServer.instance.version}"  if env["echo"]
         end
       end
-    rescue Errno::ENOENT
+    rescue Errno::ECONNREFUSED, Errno::ENOENT, ZbxAPI_ExceptionLoginPermission
       puts "Failed to load previous session key" if env["echo"]
-    rescue ZbxAPI_ExceptionLoginPermission
-      puts "Failed to load previous session key" if env["echo"]
-    rescue Errno::ECONNREFUSED
-      puts "Failed to load previous session key" if env["echo"]
+#      return
     end
 
+
+    credentials=ServerCredentials.instance[env["default_server"]] if credentials.nil?
 
     if !loaded_session && !credentials["server"].nil? &&
       !credentials["username"].nil? && !credentials["password"].nil?
       puts "Found valid login credentials, attempting login"  if env["echo"]
       begin
 
+        #
         ZabbixServer.instance.login(credentials)
 
       rescue ZbxAPI_ExceptionBadAuth => e

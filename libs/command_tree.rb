@@ -131,12 +131,12 @@ class ZabconExecuteContainer
     end
 
     cmd_str=tokens.map{|i|
-      if i.kind==:variable
-        name=/^\$(.*)/.match(i.value)[1]
-        GlobalVars.instance[name] || env[name]
-      else
+    #  if i.kind==:variable
+    #    name=/^\$(.*)/.match(i.value)[1]
+    #    GlobalVars.instance[name] || env[name]
+    #  else
         i.value
-      end
+    #  end
       }.join
 
     debug(5,:msg=>"Command String",:var=>cmd_str)

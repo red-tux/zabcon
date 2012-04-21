@@ -232,8 +232,8 @@ class ZabconApp
         puts "Unable to access configuration file: #{config_file}"
       end
       config={}
-    rescue String=>e
-      if e=="NoConfig"
+    rescue RuntimeError=>e
+      if e.message=="NoConfig"
         puts "Unable to find a default configuration file"
         config={}
       else
@@ -247,10 +247,10 @@ class ZabconApp
     server_keys=["server","username","password","proxy_server",
                 "proxy_port","proxy_user","proxy_password"]
 
-    ServerCredentials.instance["global"]=config.select_keys(server_keys).merge({"name"=>"global"})
-
-    config.delete_keys(server_keys)
-
+    if !config.empty?
+      ServerCredentials.instance["global"]=config.select_keys(server_keys).merge({"name"=>"global"})
+      config.delete_keys(server_keys)
+    end
 
     config.each_pair { |k,v|
       if k.match(/(.+)\[(.+)\]\[(.+)\]/)

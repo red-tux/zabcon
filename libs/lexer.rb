@@ -140,26 +140,61 @@ class Lexr
 		@text[@position..-1]
 	end
 
-	class Token
-		attr_reader :value, :kind, :opts
+  #class Token
+  #Token dynamically generates sub classes when Token.new is called
+  #The sub classes are descendant from Lexr::Token::Sub
+  class Token
+    class Sub
+      attr_reader :value
 
-		def initialize(value, kind = nil, opts={})
-#			@opts, @value, @kind = value, kind, opts
-      @value, @kind, @opts = value, kind, opts
-		end
+    		def initialize(value)
+          @value = value
+        end
 
-		def self.method_missing(sym, *args)
-			self.new(args.first, sym)
-		end
+        def to_s
+    			"#{kind}(#{value})"
+    		end
 
-		def to_s
-			"#{kind}(#{value})"
-		end
+    		def ==(other)
+        	self.class == other.class && @value == other.value
+        end
 
-		def ==(other)
-    	@kind == other.kind && @value == other.value
-		end
-	end
+        def is_a?(obj)
+          if obj.class==Symbol
+            obj==self.class.to_s.split("::")[-1].downcase.intern
+          else
+            super(obj)
+          end
+        end
+
+        def kind
+          self.class.to_s.split("::")[-1].downcase.intern
+        end
+    end
+
+    class Variable < Sub
+      def set_value(val)
+        @value=val
+      end
+    end
+
+    def self.new(value,kind=nil)
+      obj_name=kind.to_s.capitalize
+      begin
+        #    self::Sub.new(value,kind,opts)
+        obj=self.const_get(obj_name)
+        obj.new(value)
+      rescue NameError
+        self.const_set(obj_name,Class.new(Token::Sub))
+        retry
+      end
+    end
+
+  	def self.method_missing(sym, *args)
+  		self.new(args.first, sym)
+    end
+
+  end
 
 	class Rule
 		attr_reader :pattern, :symbol, :raises
@@ -450,6 +485,7 @@ class BasicExpressionTokenizer < Tokenizer
 
 end
 
+#TODO Clean up code now that Lexr::Token is a dynamic class generator
 class ExpressionTokenizer < Tokenizer
 
   class UnexpectedClose < InvalidCharacter
@@ -1015,7 +1051,7 @@ class ExpressionTokenizerHash < ExpressionTokenizer
       elsif item.is_a?(Numeric) || item.is_a?(String)
         val={item.to_s=>@default_val}
       else
-        raise InvaliItem.new("Invalid token for hash key",:invalid_item=>item.to_s)
+        raise InvalidItem.new("Invalid token for hash key",:invalid_item=>item.to_s)
       end
       ret_hash.merge!(val)
     end
@@ -1047,16 +1083,86 @@ class SimpleTokenizerString < SimpleTokenizer
 end
 
 
+def walk(tokens,pos,skip=[:whitespace])
+  pos+=1 while (pos<tokens.length &&
+      !(skip & [tokens[pos].kind]).empty? &&
+      tokens[pos].kind!=:end)
+  pos
+end
 
-#p test_str="\"test\"=test1,2.0,3, 4 \"quote test\" value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
-#p test_str="value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
-#p test_str="test=4, 5, 6, 7  {a={b=4,c=5}} test2=[1,2,[3,[4]],5] value=9, 9"
-#p test_str="a=[1,2] b={g=2} c 1,two,[1.1,1.2,1.3,[A]],three,4 d e[1,2] "
-#p test_str="word1 word2,word3 , d , e,"
-#p test_str="  test   a=1, bla {b={c=2}}"
-#p test_str="a=b \\(a=c\\)"
-#p test_str="\\)"
+def group(tokens)
+  retval,=group2(tokens,[])
+  retval
+end
 
-#p tokens=ExpressionTokenizer.new(test_str)
-#p result=tokens.parse
+def group2(tokens,stack)
+  raise "Empty tokens" if tokens.empty?
+
+  retval=[]
+  need_comma=stack.length>0
+
+  pos=-1
+  while ((pos+=1)<tokens.length)
+    case tokens[pos].kind
+      when stack[-1]
+        return retval,pos+1
+      when :end
+        return retval,pos+1
+      when :word, :number, :variable, :escape
+        lpos= stack[-1]==:whitespace ? pos+1 : lpos=walk(tokens,pos+1)
+        if tokens[lpos].kind==:equals
+          new_stack=stack.empty? ? [:whitespace] : stack+[stack[-1]]
+          lside=tokens[pos]
+          rside, lpos=group2(tokens[lpos+1..-1], new_stack)
+          pos+=lpos
+          retval<<{lside => rside}
+        elsif tokens[lpos].kind==:comma && !need_comma
+          new_stack=stack.empty? ? [:whitespace] : stack+[stack[-1]]
+          ret, pos=group2(tokens[pos..-1], new_stack)
+          retval<<ret
+        else
+          retval<<tokens[pos]
+        end
+      when :l_square
+        rside, lpos=group2(tokens[pos+1..-1],stack+[:r_square])
+        pos+=lpos
+        retval<<rside
+      when :comma
+        raise "Unexpected comma" if !need_comma
+      when :whitespace
+        #do nothing
+      else
+        puts "pos: #{pos}"
+        puts "tokens[pos]: #{tokens[pos].inspect}"
+        puts "stack: #{stack.inspect}"
+        exit
+    end
+  end
+
+  return retval,pos
+end
+
+
+if ($0==__FILE__)
+
+  include ZDebug
+  set_debug_level(1)
+  require "pp"
+  #p test_str="\"test\"=test1,2.0,3, 4 \"quote test\" value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
+  #p test_str="value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
+  #p test_str="test=4, 5, 6, 7  {a={b=4,c=5}} test2=[1,2,[3,[4]],5] value=9, 9"
+  p test_str="a=[1,2] b={g=2}   c 1,two,[1.1,1.2,1.3,[A]],three,4 d e[1,2] $var"
+  #p test_str="word1 word2,word3 , d , e,"
+  #p test_str="  test   a=1, bla {b={c=2}}"
+  #p test_str="a=b \\(a=c\\)"
+  #p test_str="\\)"
+  #p test_str="a=b=[c, d] a [1,2] $var=5"
+
+  pp tokens=ExpressionTokenizer.new(test_str)
+  puts "----"
+
+  pp result=tokens.parse
+  #puts "----"
+  #pp group(tokens)
+end
 
