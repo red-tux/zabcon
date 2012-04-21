@@ -511,7 +511,7 @@ ZabconCommand.add_command "get item" do
   end
   set_valid_args 'itemids','hostids','groupids', 'triggerids','applicationids',
                   'status','templated_items','editable','count','pattern','limit',
-                  'order', 'show'
+                  'order', 'show', 'search'
   default_show ["itemid", "key_", "description"]
   set_flag :login_required
   set_flag :print_output
