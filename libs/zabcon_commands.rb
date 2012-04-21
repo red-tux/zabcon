@@ -510,8 +510,14 @@ ZabconCommand.add_command "get item" do
     server.connection.item.get(params)
   end
   set_valid_args 'itemids','hostids','groupids', 'triggerids','applicationids',
-                  'status','templated_items','editable','count','pattern','limit',
-                  'order', 'show', 'search'
+                  'editable','pattern','limit','search','nodeids','templateids',
+                  'proxyids','graphids','webitems','inherited','templated','host',
+                  'monitored','filter','group','application','belongs',
+                  'with_triggers','startSearch','excludeSearch','searchWildcardsEnabled',
+                  'output','select_hosts','select_triggers','select_graphs',
+                  'select_applications','countOutput','groupOutput','preservekeys',
+                  'sortfield','sortorder','show'
+
   default_show ["itemid", "key_", "description"]
   set_flag :login_required
   set_flag :print_output
