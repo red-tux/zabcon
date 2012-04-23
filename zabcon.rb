@@ -57,7 +57,7 @@ depsok=true  #assume we will not fail dependencies
 DEPENDENCIES.each do |pkg,ver|
   begin
     require pkg
-    if ver!=true  && Gem.loaded_specs[pkg].version<ver
+    if ver.is_a?(Gem::Version) && Gem.loaded_specs[pkg].version<ver
       depsok=false
       puts "Error: '#{pkg}' must be at least version #{ver.to_s} or higher, #{Gem.loaded_specs[pkg].version.to_s} installed"
     end
