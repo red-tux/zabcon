@@ -483,6 +483,45 @@ end
 #Item                                                                     Item#
 ###############################################################################
 
+#  Item types
+#  0 Zabbix agent             - Passive
+#  1 SNMPv1 agent             - SNMP
+#  2 Zabbix trapper           - Trapper
+#  3 Simple check             - Simple
+#  4 SNMPv2 agent             - SNMP2
+#  5 Zabbix internal          - Internal
+#  6 SNMPv3 agent             - SNMP3
+#  7 Zabbix agent (active)    - Active
+#  8 Zabbix aggregate         - Aggregate
+# 10 External check           - External
+# 11 Database monitor         - Database
+# 12 IPMI agent               - IPMI
+# 13 SSH agent                - SSH
+# 14 TELNET agent             - Telnet
+# 15 Calculated               - Calculated
+
+#value types
+# 0 Numeric (float)
+# 1 Character
+# 2 Log
+# 3 Numeric (unsigned)
+# 4 Text
+
+# Data Types
+# 0 Decimal
+# 1 Octal
+# 2 Hexadecimal
+
+# Status Types
+# 0 Active
+# 1 Disabled
+# 2 Not Supported
+
+# Delta Types
+# 0 As is
+# 1 Delta (Speed per second)
+# 2 Delta (simple change)
+
 
 ZabconCommand.add_command "add item" do
   set_method do |params|

@@ -335,6 +335,7 @@ class ZabconCore
   end
 
 #
+# TODO: Fix XML Import capability to work again.
 # Import config from an XML file:
 #
   def do_import(input)
