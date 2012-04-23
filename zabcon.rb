@@ -45,7 +45,7 @@ DEPENDENCIES={
   "zbxapi"=>Gem::Version.new("0.1.369")
 }
 
-if RUBY_VERSION < REQUIRED_RUBY_VER
+if Gem::Version.create(RUBY_VERSION) < Gem::Version.create(REQUIRED_RUBY_VER)
   puts "Zabcon requires Ruby version #{REQUIRED_RUBY_VER} or higher."
   puts "you are using Ruby version #{RUBY_VERSION}."
   puts
@@ -54,22 +54,19 @@ end
 
 depsok=true  #assume we will not fail dependencies
 
-DEPENDENCIES.each_key {|dep|
-  gem=Gem.source_index.find_name(dep)
-  if gem.empty?
-    puts " #{dep} : Not Installed"
-    depsok=false
-    break
-  end
-  gem.sort!{ |a,b| a.version <=> b.version }
-  depsok=depsok && !gem.map { |g|
-    if DEPENDENCIES[dep].class==Gem::Version && g.version<DEPENDENCIES[dep]
-      "#{dep} needs to be at least version #{DEPENDENCIES[dep]}, found #{g.version}"
-    else
-
+DEPENDENCIES.each do |pkg,ver|
+  begin
+    require pkg
+    if ver!=true  && Gem.loaded_specs[pkg].version<ver
+      depsok=false
+      puts "Error: '#{pkg}' must be at least version #{ver.to_s} or higher, #{Gem.loaded_specs[pkg].version.to_s} installed"
     end
-  }.delete_if {|i| i==false}.empty?
-}
+  rescue LoadError
+    depsok=false
+    puts "Error: '#{pkg}' is a missing required dependency"
+  end
+end
+
 if !depsok
   puts
   puts "One or more dependencies failed"
@@ -88,18 +85,21 @@ require 'zbxapi/zdebug'
 require 'libs/zabcon_globals'
 require 'parseconfig'
 
-if RUBY_VERSION=="1.8.6"  #Ruby 1.8.6 lacks the each_char function in the string object, so we add it here
-  String.class_eval do
-    def each_char
-      if block_given?
-        scan(/./m) do |x|
-          yield x
+#Make any changes to base classes which are version specific
+case Gem::Version.create(RUBY_VERSION)
+  when Gem::Version.create("1.8.6")
+    #Ruby 1.8.6 lacks the each_char function in the string object, so we add it here
+    String.class_eval do
+      def each_char
+        if block_given?
+          scan(/./m) do |x|
+            yield x
+          end
+        else
+          scan(/./m)
         end
-      else
-        scan(/./m)
       end
     end
-  end
 end
 
 class ZabconApp
