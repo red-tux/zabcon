@@ -42,7 +42,7 @@ DEPENDENCIES={
   "parseconfig"=>true,
   "json"=>true,
   "highline"=>true,
-  "zbxapi"=>Gem::Version.new("0.1.369")
+  "zbxapi"=>Gem::Version.new("0.1.386")
 }
 
 if Gem::Version.create(RUBY_VERSION) < Gem::Version.create(REQUIRED_RUBY_VER)
