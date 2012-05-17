@@ -72,7 +72,8 @@ class ZabbixWebClient
     data
   end
 
-  def export(hosts,filename)
+  #Export function for 1.8
+  def export18(hosts,filename)
     uri=hosts.map {|hostid| "hosts[#{hostid}]=#{hostid}"}.join("&")
     uri+="&go=export&goButton=Go+(#{hosts.length})"
     uri=URI.escape(uri)
@@ -107,7 +108,11 @@ ZabconCommand.add_command "xml export" do
     raise "Found unknown host ids" if !ok
 
     zbxweb=ZabbixWebClient.new
-    zbxweb.export(hostids,filename)
+    if server.version.to_f<1.4
+      zbxweb.export18(hostids,filename)
+    else
+      puts "Export implemented for 1.8.x only."
+    end
 
   end
 

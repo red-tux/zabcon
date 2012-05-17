@@ -337,8 +337,7 @@ ZabconCommand.add_command "raw api" do
   set_flag :print_output
   set_help_tag :raw_api
   result_type :raw_api
-  tokenizer CommandTokenizer
-#  tokenizer SimpleTokenizer
+  tokenizer ExpressionTokenizer
 end
 
 ZabconCommand.add_command "raw json" do

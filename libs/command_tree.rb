@@ -215,7 +215,8 @@ class Command
           show=args["show"] || flags[:default_cols]
           @show_params={:show=>show}
           @cmd_params.delete("show") if args["show"]
-          @cmd_params.merge!({"extendoutput"=>true})
+          #@cmd_params.merge!({"extendoutput"=>true})
+          @cmd_params.merge!({"output"=>"extend"})
         end
       end
     end
