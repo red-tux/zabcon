@@ -224,6 +224,7 @@ class ZabconApp
     rescue RuntimeError=>e
       if e.message=="NoConfig"
         puts "Unable to find a default configuration file"
+        env["no_login"]=true  #Do not attempt to log into a server, we have no config
         config={}
       else
         raise e

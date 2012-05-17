@@ -22,9 +22,9 @@
 ##########################################
 
 require 'rubygems'
-require 'rubygems/package_task'
 require 'rake'
 require 'rake/rdoctask'
+require 'rubygems/package_task'
 
 $rev = %x[svn -R info * 2>&1 | grep Revis | cut -f2 -d" "|sort -ur|head -1].chop.to_i
 
