@@ -130,14 +130,7 @@ class ZabconExecuteContainer
       tokens=tokens.drop(positions[2]+1)
     end
 
-    cmd_str=tokens.map{|i|
-    #  if i.kind==:variable
-    #    name=/^\$(.*)/.match(i.value)[1]
-    #    GlobalVars.instance[name] || env[name]
-    #  else
-        i.value
-    #  end
-      }.join
+    cmd_str=tokens.to_s
 
     debug(5,:msg=>"Command String",:var=>cmd_str)
     cmd=commandlist.find_and_parse(cmd_str)
@@ -444,7 +437,7 @@ class Command
     debug(7,:msg=>"Using tokenizer", :var=>@tokenizer.to_s)
     tokenized_parameters=@tokenizer.new(parameters)
     tokenized_parameters=@tokenizer_method.call(tokenized_parameters) if @tokenizer_method
-    debug(7,:msg=>"Tokenized Parameters",:var=>tokenized_parameters)
+    debug(8,:msg=>"Tokenized Parameters",:var=>tokenized_parameters)
     tokenized_parameters.parse
   end
 
@@ -602,8 +595,8 @@ class CommandList
     cmd=cur_node[:node]
     #params=str_array[count..str_array.length].join.strip
 
-    debug(6,:msg=>"Tokens", :var=>tokens)
-    debug(6,:msg=>"Pos", :var=>pos)
+    debug(8,:msg=>"Tokens", :var=>tokens)
+    debug(8,:msg=>"Pos", :var=>pos)
 #    debug(6,:msg=>"Parsed", :var=>tokens.parse)
     params = tokens.drop(pos+1).join
 

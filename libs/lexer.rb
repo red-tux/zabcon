@@ -357,8 +357,8 @@ ExpressionLexer = Lexr.setup {
   matches /\\/ => :escape
 #  matches /\\\"/ =>
   matches /\$[\w]+/ => :variable
-  matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote
-  matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote
+  matches /"([^"\\]*(\\.[^"\\]*)*)"/ => :quote, :convert_with=>lambda {|v| v[1,v.length-2]}
+  matches /"([^'\\]*(\\.[^'\\]*)*)"/ => :quote, :convert_with=>lambda {|v| v[1,v.length-2]}
   matches "(" => :l_paren, :increment=>:paren
   matches ")" => :r_paren, :decrement=>:paren
   matches "{" => :l_curly, :increment=>:curly
@@ -464,6 +464,16 @@ class Tokenizer < Array
       eval(str)
       eval(class_name)
     end
+  end
+
+  def to_s
+    self.map{|i|
+      if i.kind==:quote
+        "#{i.value}"
+      else
+        i.value
+      end
+    }.join
   end
 end
 
@@ -1151,16 +1161,18 @@ if ($0==__FILE__)
   #p test_str="\"test\"=test1,2.0,3, 4 \"quote test\" value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
   #p test_str="value = { a = { b = [ c = { d = [1,a,g=f,3,4] }, e=5,6,7,8] } }"
   #p test_str="test=4, 5, 6, 7  {a={b=4,c=5}} test2=[1,2,[3,[4]],5] value=9, 9"
-  p test_str="a=[1,2] b={g=2}   c 1,two,[1.1,1.2,1.3,[A]],three,4 d e[1,2] $var"
+  #p test_str="a=[1,2] b={g=2}   c 1,two,[1.1,1.2,1.3,[A]],three,4 d e[1,2] $var"
   #p test_str="word1 word2,word3 , d , e,"
   #p test_str="  test   a=1, bla {b={c=2}}"
   #p test_str="a=b \\(a=c\\)"
   #p test_str="\\)"
   #p test_str="a=b=[c, d] a [1,2] $var=5"
+  p test_str="filter={name1=\"A Server\",name2=\"Joe's server\",name3=\"Maria's \\\"Server\\\"\"}"
 
   pp tokens=ExpressionTokenizer.new(test_str)
   puts "----"
 
+  p tokens.to_s
   pp result=tokens.parse
   #puts "----"
   #pp group(tokens)
