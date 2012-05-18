@@ -73,7 +73,7 @@ ZabconCommand.add_command "login" do
       creds=servers["global"].select_keys(["proxy_server",
                 "proxy_port","proxy_user","proxy_password"])
       creds.merge!({"server"=>params[0],"username"=>params[1],
-          "password"=>params[2]})
+          "password"=>params[2],"name"=>"global"})
     end
     server.login(creds)
   end

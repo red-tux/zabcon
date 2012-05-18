@@ -103,6 +103,7 @@ class ZabbixServer
   # set previously, an attempt will be made to use the global environment
   # variables.  If that does not work an exception will be raised.
   def login(server={})
+    #TODO Clean up credentials hash usage and document better
     @credentials.merge!(server)
 
     error_msg=[]

@@ -32,7 +32,7 @@ begin
 rescue LoadError
   puts
   puts "Ruby Gems failed to load.  Please install Ruby Gems using your systems"
-  puts "package management program or downlaod it from http://rubygems.org."
+  puts "package management program or download it from http://rubygems.org."
   puts
   exit 1
 end
@@ -65,15 +65,6 @@ DEPENDENCIES.each do |pkg,ver|
     depsok=false
     puts "Error: '#{pkg}' is a missing required dependency"
   end
-end
-
-if !depsok
-  puts
-  puts "One or more dependencies failed"
-  puts "Please see the dependencies file for instructions on installing the"
-  puts "required dependencies"
-  puts
-  exit(1)
 end
 
 require 'libs/utility_items'
@@ -112,7 +103,6 @@ class ZabconApp
     @cmd_opts=OpenStruct.new
 #    @options.debug=0
 
-
     @opts = OptionParser.new do |opts|
       opts.banner = "Usage: #{$0} [options] [command file]"
       opts.separator "------------------------------------"
@@ -131,7 +121,7 @@ class ZabconApp
               "./zabcon.conf, ~/zabcon.conf in that","order") do |file|
         @cmd_opts.config_file=file
       end
-      opts.on("--no-login", "Do not automaticly log into Zabbix server on startup") do
+      opts.on("--no-login", "Do not automatically log into Zabbix server on startup") do
         @cmd_opts.no_login=true
       end
       opts.on("-S","--use-server SERVER","Log into the named server from the config file on startup") do |server|
@@ -336,5 +326,4 @@ rescue Exception => e
     n+=1
   }
 end
-
 
