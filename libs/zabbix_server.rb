@@ -180,7 +180,7 @@ class ZabbixServer
             @credentials["proxy_user"],@credentials["proxy_password"])
     end
 
-    major,minor=@connection.do_request(@connection.json_obj('APIInfo.version',{}))['result'].split('.')
+    major,minor=@connection.do_request(@connection.json_obj('apiinfo.version',{}))['result'].split('.')
     @connection.major=major.to_i
     @connection.minor=minor.to_i
     @version=@connection.API_version
