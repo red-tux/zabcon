@@ -142,7 +142,7 @@ class ZabconApp
       opts.on("-e", "--[no-]echo", "Enable startup echo.  Default is on ","for interactive") do |echo|
         @cmd_opts.echo=echo
       end
-      opts.on("-s", "--separator CHAR", "Seperator character for csv styple output.",
+      opts.on("-s", "--separator CHAR", "Separator character for csv styple output.",
               "Use \\t for tab separated output.") do |sep|
         @cmd_opts.table_separator=sep
       end
