@@ -26,6 +26,7 @@
 
 #setup our search path or libraries
 ZABCON_PATH=File.expand_path(File.join(File.dirname(__FILE__), '.'))
+$LOAD_PATH<<"."
 
 begin
   require 'rubygems'
@@ -96,7 +97,7 @@ require 'libs/zabcon_globals'
 require 'parseconfig'
 
 #Make any changes to base classes which are version specific
-case Gem::Version.create(RUBY_VERSION)
+case Gem::Version.create(RUBY_VERSION.dup)
   when Gem::Version.create("1.8.6")
     #Ruby 1.8.6 lacks the each_char function in the string object, so we add it here
     String.class_eval do

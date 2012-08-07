@@ -10,9 +10,12 @@
 
 ln -s ../api/zbxapi.rb zbxapi.rb
 ln -s ../api/zbxapi zbxapi
-ln -s ../api/api_classes api_classes
-cd libs
-ln -s ../api/libs/api_exceptions.rb api_exceptions.rb
-ln -s ../api/libs/exceptions.rb exceptions.rb
-ln -s ../api/libs/zdebug.rb zdebug.rb
-cd -
+
+#No longer needed, zabcon uses a search path of "."
+#ln -s ../api/api_classes api_classes
+#cd libs
+#ln -s ../api/libs/api_exceptions.rb api_exceptions.rb
+#ln -s ../api/libs/exceptions.rb exceptions.rb
+#ln -s ../api/libs/zdebug.rb zdebug.rb
+
+#cd -
