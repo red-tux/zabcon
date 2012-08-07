@@ -653,7 +653,7 @@ module ZabconCommand
         if path.class==Array
           path
         elsif path.class==String
-          path.split2(:trim_empty=>true)
+          path.split(/\s+/)  #ensure split on whitespace
         else
           raise "Path must be Array or string"
         end
