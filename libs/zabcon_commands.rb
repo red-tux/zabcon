@@ -70,8 +70,13 @@ ZabconCommand.add_command "login" do
     elsif params.length==0
       creds=servers["global"]
     else
-      creds=servers["global"].select_keys(["proxy_server",
+      if servers["global"].nil?
+        creds={"proxy_server"=>"","proxy_port"=>"",
+               "proxy_user"=>"","proxy_password"=>""}
+      else
+        creds=servers["global"].select_keys(["proxy_server",
                 "proxy_port","proxy_user","proxy_password"])
+      end
       creds.merge!({"server"=>params[0],"username"=>params[1],
           "password"=>params[2],"name"=>"global"})
     end

@@ -37,15 +37,15 @@ rescue LoadError
   exit 1
 end
 
+#External Gems which are required for Zabcon.
 REQUIRED_RUBY_VER="1.8.6"
 DEPENDENCIES={
   "parseconfig"=>true,
   "json"=>true,
-  "highline"=>true,
-  "zbxapi"=>Gem::Version.new("0.1.386")
+  "highline"=>true
 }
 
-if Gem::Version.create(RUBY_VERSION) < Gem::Version.create(REQUIRED_RUBY_VER)
+if Gem::Version.create(RUBY_VERSION.dup) < Gem::Version.create(REQUIRED_RUBY_VER)
   puts "Zabcon requires Ruby version #{REQUIRED_RUBY_VER} or higher."
   puts "you are using Ruby version #{RUBY_VERSION}."
   puts
@@ -66,6 +66,25 @@ DEPENDENCIES.each do |pkg,ver|
     puts "Error: '#{pkg}' is a missing required dependency"
   end
 end
+
+#Test to see that Zbxapi is available
+ZBXAPI_GEM="0.1.386"
+
+begin
+  require 'zbxapi'
+  if Gem.loaded_specs['zbxapi'].version<Gem::Version.new(ZBXAPI_GEM)
+    puts "Error: 'zbxapi' must be at least version #{ZBXAPI_GEM} or higher, #{Gem.loaded_specs['zbxapi'].version.to_s} installed"
+    depsok=false
+  end
+rescue LoadError
+  puts "Error: 'zbxapi' is required and missing."
+  depsok=false
+rescue NoMethodError
+  puts "Using locally found gem, no version guarantees."
+end
+
+exit(1) if !depsok
+
 
 require 'libs/utility_items'
 require 'libs/revision'
