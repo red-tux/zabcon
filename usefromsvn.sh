@@ -10,7 +10,7 @@
 
 ln -s ../api/zbxapi.rb zbxapi.rb
 ln -s ../api/zbxapi zbxapi
-#ln -s ../api/api_classes api_classes
+ln -s ../api/api_classes api_classes
 
 #No longer needed, zabcon uses a search path of "."
 #cd libs
