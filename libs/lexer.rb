@@ -913,7 +913,7 @@ class ExpressionTokenizer < Tokenizer
       retval=[]
     end
 
-    raise "Close cannot be nil if skip_until_close" if status.skip_until_close && status.close.nil?
+#    raise "Close cannot be nil if skip_until_close" if status.skip_until_close && status.close.nil?
 
     debug(8,:msg=>"Unravel",:var=>[status,pos])
 
