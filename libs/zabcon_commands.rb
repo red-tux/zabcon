@@ -49,7 +49,7 @@ ZabconCommand.add_command "help" do
   end
 #  set_flag :array_params
   set_help_tag :help
-  tokenizer SimpleTokenizer
+  tokenizer(SimpleTokenizer.options(:remove_whitespace))
 end
 
 ZabconCommand.add_command "help commands" do

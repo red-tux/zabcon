@@ -10,4 +10,4 @@ else
   export RUBYLIB="../api/:$RUBYLIB"
 fi
 
-zabcon.rb $*
+./zabcon.rb $*

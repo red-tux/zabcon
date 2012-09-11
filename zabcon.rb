@@ -26,7 +26,7 @@
 
 #setup our search path or libraries
 ZABCON_PATH=File.expand_path(File.join(File.dirname(__FILE__), '.'))
-$LOAD_PATH<<"."
+$LOAD_PATH<<File.expand_path(File.dirname(__FILE__))
 
 begin
   require 'rubygems'
