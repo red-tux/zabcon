@@ -34,9 +34,9 @@ class ZabbixServer_overload < ZabbixAPI
 
   attr_accessor :major, :minor
 
-  def initialize(url,debug_level=0)
+  def initialize(url,options={})
     @env = env
-    zbxapi_initialize(url,debug_level)
+    zbxapi_initialize(url,options)
   end
 
   #truncate_length is set to the symbol :not_used as do_request is passed a different variable
@@ -113,7 +113,7 @@ class ZabbixServer
 
     raise ConnectionProblem.new(error_msg.join(", ")) if !error_msg.empty?
 
-    @connection = ZabbixServer_overload.new(@credentials["server"],env["debug"])
+    @connection = ZabbixServer_overload.new(@credentials["server"],:debug=>env["debug"])
     if @credentials["proxy_server"]
       @connection.set_proxy(@credentials["proxy_server"],@credentials["proxy_port"],
             @credentials["proxy_user"],@credentials["proxy_password"])
@@ -173,7 +173,7 @@ class ZabbixServer
 
 #    @server_url = server["server"] || @server_url
 
-    @connection = ZabbixServer_overload.new(server_url,env["debug"])
+    @connection = ZabbixServer_overload.new(server_url,:debug=>env["debug"])
     @connection.auth=@credentials["auth"]
     if @credentials["proxy_server"]
       @connection.set_proxy(@credentials["proxy_server"],@credentials["proxy_port"],

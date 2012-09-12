@@ -69,7 +69,7 @@ DEPENDENCIES.each do |pkg,ver|
 end
 
 #Test to see that Zbxapi is available
-ZBXAPI_GEM="0.1.386"
+ZBXAPI_GEM="0.2.412"
 
 begin
   require 'zbxapi'
