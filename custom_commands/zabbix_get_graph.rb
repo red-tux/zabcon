@@ -161,18 +161,26 @@ ZabconCommand.add_command "zabbix get graph" do
     raise Command::NonFatalError.new("Time period cannot be 0 or negative (start must be before end)") if period<1
 
     uri=URI.parse(server.server_url)
-    zbx_front = Net::HTTP.new(uri.host, uri.port)
+    p server.server_url
+    p uri.path
+    if server.connection.proxy_server
+      proxy=server.connection.proxy_server
+      zbx_front = Net::HTTP::Proxy(proxy[:address],proxy[:port],
+                  proxy[:user],proxy[:password]).new(uri.host, uri.port)
+    else
+      zbx_front = Net::HTTP.new(uri.host, uri.port)
+    end
     zbx_front.use_ssl=true if uri.class==URI::HTTPS
 
     cookies="zbx_sessionid=#{server.connection.auth}"
     headers={'User-Agent'=>'Zbx Ruby CLI',
              'Cookie'=>cookies}
 
-    path=nil
+    path=uri.path
     if params["graphid"]
-      path="/char2.php?graphid=#{params["graphid"]}"
+      path="#{path}/char2.php?graphid=#{params["graphid"]}"
     else
-      path="/chart.php?itemid=#{params["itemid"]}"
+      path="#{path}/chart.php?itemid=#{params["itemid"]}"
     end
     path+="&stime=#{time_start_s}"
     path+="&period=#{period}"
